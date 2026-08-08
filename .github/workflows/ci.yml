@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [main]
 
+# Required so softprops/action-gh-release can attach assets to the release
+permissions:
+  contents: write
+
 jobs:
   # Runs on every push/PR: compile + eunit tests
   test:
@@ -28,6 +32,7 @@ jobs:
     needs: test
     if: startsWith(github.ref, 'refs/tags/v')
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
