@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Runs on every push/PR: compile + eunit tests
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27.1.2"
+          rebar3-version: "3.27.0"
+
+      - name: Run tests
+        run: rebar3 eunit
+
+  # Runs only on version tags (e.g. v0.1.0): builds prod release per OS and
+  # attaches the tarball to a GitHub Release.
+  release:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: erl_data_shift-linux-x86_64
+          - os: macos-latest
+            artifact_name: erl_data_shift-macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # setup-beam provides a proper OTP build with crypto/OpenSSL on both
+      # Linux and macOS runners, so no manual kerl/OpenSSL bootstrap needed in CI.
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27.1.2"
+          rebar3-version: "3.27.0"
+
+      - name: Build prod release
+        run: rebar3 as prod release
+
+      - name: Package release tarball
+        run: |
+          cd _build/prod/rel
+          tar -czf "${{ matrix.artifact_name }}.tar.gz" erl_data_shift
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: _build/prod/rel/${{ matrix.artifact_name }}.tar.gz
