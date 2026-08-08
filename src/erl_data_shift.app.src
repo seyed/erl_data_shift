@@ -1,0 +1,26 @@
+{application, erl_data_shift, [
+    {description, "PostgreSQL Migration Tool"},
+    {vsn, "0.1.0"},
+    {registered, []},
+    
+    %% The main module that the application (contains start/2)
+    {mod, {erl_data_shift_app, []}},
+    
+    %% APPLICATIONS LIST:
+    %% These are OTP applications that MUST be started before your app runs.
+    %% Even if your current code doesn't call them directly. 
+    {applications, [
+        kernel,             %% [REQUIRED] Core Erlang primitives (file I/O, processes, networking).
+        stdlib,             %% [REQUIRED] Standard library (lists, maps, io, gen_server behaviors).
+        
+        %% Crypto & Security Stack (Required for SSL/TLS connections to Postgres)
+        crypto,             %% [REQUIRED] Cryptographic functions. Needed by public_key and ssl.
+        public_key,         %% [REQUIRED] Public key infrastructure (PKI). Needed by ssl for certificates.
+        ssl,                %% [REQUIRED] Secure Socket Layer. REQUIRED by epgsql for encrypted DB connections.
+	sasl                %% [Good to have] Hot upgrades. 
+    ]},
+    
+    {modules, []},          %% Auto-filled by rebar3 during compilation.
+    {licenses, ["MIT"]},    %% Open-source license.
+    {links, []}             %% TODO: Project homepage/docs. 
+]}.   
