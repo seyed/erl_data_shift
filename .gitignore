@@ -3,6 +3,7 @@
 *.beam
 *.plt
 erl_crash.dump
+rebar3.crashdump
 .concrete/DEV_MODE
 
 # rebar 2.x
@@ -15,3 +16,10 @@ deps
 .rebar3
 _build/
 _checkouts/
+
+# macOS
+.DS_Store
+
+# editor
+.vscode/
+.idea/
