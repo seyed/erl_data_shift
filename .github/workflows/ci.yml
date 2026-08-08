@@ -53,12 +53,31 @@ jobs:
       - name: Build prod release
         run: rebar3 as prod release
 
-      - name: Package release tarball
+      - name: Package self-extracting single-file binary
         run: |
-          cd _build/prod/rel
-          tar -czf "${{ matrix.artifact_name }}.tar.gz" erl_data_shift
+          VERSION=$(grep -o '{release, {erl_data_shift, "[^"]*"' rebar.config | sed 's/.*"\(.*\)"/\1/')
+          OUT_FILE="_build/prod/bin/${{ matrix.artifact_name }}"
+          TARBALL="_build/prod/erl_data_shift-release.tar.gz"
+          mkdir -p "_build/prod/bin"
+          tar -C "_build/prod/rel" -czf "$TARBALL" erl_data_shift
+          cat > "$OUT_FILE" <<STUB
+          #!/usr/bin/env bash
+          set -e
+          CACHE_DIR="\${HOME}/.cache/erl_data_shift/${VERSION}"
+          if [ ! -x "\${CACHE_DIR}/bin/erl_data_shift" ]; then
+              mkdir -p "\${CACHE_DIR}"
+              ARCHIVE_LINE=\$(awk '/__ARCHIVE_BELOW__\$/{print NR + 1; exit 0;}' "\$0")
+              tail -n +"\${ARCHIVE_LINE}" "\$0" | tar -xz -C "\${CACHE_DIR}" --strip-components=1
+          fi
+          exec "\${CACHE_DIR}/bin/erl_data_shift" "\$@"
+          exit 0
+          __ARCHIVE_BELOW__
+          STUB
+          cat "$TARBALL" >> "$OUT_FILE"
+          chmod +x "$OUT_FILE"
+          rm -f "$TARBALL"
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: _build/prod/rel/${{ matrix.artifact_name }}.tar.gz
+          files: _build/prod/bin/${{ matrix.artifact_name }}

@@ -107,7 +107,7 @@ set -e
 CACHE_DIR="\${HOME}/.cache/erl_data_shift/${VERSION}"
 if [ ! -x "\${CACHE_DIR}/bin/erl_data_shift" ]; then
     mkdir -p "\${CACHE_DIR}"
-    ARCHIVE_LINE=\$(awk '/^__ARCHIVE_BELOW__\$/{print NR + 1; exit 0;}' "\$0")
+    ARCHIVE_LINE=\$(awk '/__ARCHIVE_BELOW__\$/{print NR + 1; exit 0;}' "\$0")
     tail -n +"\${ARCHIVE_LINE}" "\$0" | tar -xz -C "\${CACHE_DIR}" --strip-components=1
 fi
 exec "\${CACHE_DIR}/bin/erl_data_shift" "\$@"
