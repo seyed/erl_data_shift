@@ -23,3 +23,6 @@ _checkouts/
 # editor
 .vscode/
 .idea/
+
+# tests generated 
+_build/test/cover/
