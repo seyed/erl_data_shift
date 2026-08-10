@@ -19,13 +19,24 @@ stop(_State) ->
     ok.
 
 %% -- dispatch --
-dispatch([Cmd | _Rest]) ->
-    case maps:find(Cmd, ?COMMANDS) of
-        {ok, Handler} -> Handler();
-        error -> print_usage(io_lib:format("Unknown command: ~s", [Cmd]))
+
+%% relx passes its own boot verb (foreground/console/start/...) through as
+%% part of the plain arguments — strip any leading one before dispatching.
+-define(BOOT_VERBS, ["foreground", "console", "start", "daemon"]).
+
+dispatch([Verb | Rest]) ->
+    case lists:member(Verb, ?BOOT_VERBS) of
+        true -> dispatch(Rest);
+        false -> run_command([Verb | Rest])
     end;
 dispatch([]) ->
     print_usage("No command given.").
+
+run_command([Cmd | _Rest]) ->
+    case maps:find(Cmd, ?COMMANDS) of
+        {ok, Handler} -> Handler();
+        error -> print_usage(io_lib:format("Unknown command: ~s", [Cmd]))
+    end.
 
 print_usage(Message) ->
     io:format("\033[31m~s~n\033[0m", [Message]),
@@ -34,10 +45,26 @@ print_usage(Message) ->
     lists:foreach(fun(Name) -> io:format("  ~s~n", [Name]) end, maps:keys(?COMMANDS)).
 
 print_caution() ->
-    io:format("\033[33mCAUTION: You are responsible for any actions taken by this tool. "
-              "We accept no liability for data loss — back up your data before proceeding.~n\033[0m").
+    Lines = [
+        "erl_data_shift",
+        "",
+        "CAUTION: You are responsible for any actions",
+        "taken by this tool. We accept no liability for",
+        "data loss — back up your data before proceeding."
+    ],
+    InnerWidth = lists:max([length(L) || L <- Lines]),
+    Border = "+" ++ lists:duplicate(InnerWidth + 2, $-) ++ "+",
+    io:format("\033[33m~s~n", [Border]),
+    lists:foreach(fun(L) ->
+        io:format("| ~s |~n", [pad(L, InnerWidth)])
+    end, Lines),
+    io:format("~s~n\033[0m", [Border]).
+
+pad(Text, Width) ->
+    Text ++ lists:duplicate(Width - length(Text), $\s).
 
 %% -- commands --
+
 con_check() ->
     case erl_data_shift_env:load() of
         {ok, Env} ->
