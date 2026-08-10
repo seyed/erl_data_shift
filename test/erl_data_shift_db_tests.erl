@@ -1,35 +1,36 @@
--module(erl_data_shift_app_tests).
+-module(erl_data_shift_db_tests).
 -include_lib("eunit/include/eunit.hrl").
 
-%% Confirms erl_data_shift_app satisfies the `application` behaviour contract.
-exports_required_callbacks_test() ->
-    Exports = erl_data_shift_app:module_info(exports),
-    ?assert(lists:member({start, 2}, Exports)),
-    ?assert(lists:member({stop, 1}, Exports)).
+sample_env() ->
+    #{
+        <<"PG_HOST">> => <<"localhost">>,
+        <<"PG_PORT">> => <<"5432">>,
+        <<"PG_USER">> => <<"admin">>,
+        <<"PG_PASSWORD">> => <<"secret">>,
+        <<"PG_DATABASE">> => <<"mydb">>
+    }.
 
-stop_returns_ok_test() ->
-    ?assertEqual(ok, erl_data_shift_app:stop(unused_state)).
+check_connection_success_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(_Opts) -> {ok, fake_conn} end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
 
-%% "migrate" is currently a placeholder — just confirm it dispatches without
-%% crashing. Real assertions land once migration logic is implemented.
-dispatch_migrate_does_not_crash_test() ->
-    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate"])).
+    Result = erl_data_shift_db:check_connection(sample_env()),
 
-%% con_check hits erl_data_shift_env/db under the hood; here we only assert
-%% it dispatches without crashing. .env may or may not be present in the
-%% test working dir — both are valid, already-handled outcomes (see
-%% erl_data_shift_env_tests / erl_data_shift_db_tests for that coverage).
-dispatch_con_check_does_not_crash_test() ->
-    ?assertEqual(ok, erl_data_shift_app:dispatch(["con_check"])).
+    ?assertEqual({ok, connected}, Result),
+    meck:unload(epgsql).
 
-dispatch_unknown_command_does_not_crash_test() ->
-    ?assertEqual(ok, erl_data_shift_app:dispatch(["not_a_real_command"])).
+check_connection_failure_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(_Opts) -> {error, econnrefused} end),
 
-dispatch_empty_args_does_not_crash_test() ->
-    ?assertEqual(ok, erl_data_shift_app:dispatch([])).
+    Result = erl_data_shift_db:check_connection(sample_env()),
 
-%% relx passes its boot verb (e.g. "foreground") through as a plain arg —
-%% confirm it's stripped and the real command still dispatches correctly.
-dispatch_strips_leading_boot_verb_test() ->
-    ?assertEqual(ok, erl_data_shift_app:dispatch(["foreground", "con_check"])),
-    ?assertEqual(ok, erl_data_shift_app:dispatch(["console", "migrate"])).
+    ?assertEqual({error, econnrefused}, Result),
+    meck:unload(epgsql).
+
+%% Sad path: missing required keys short-circuits before ever touching epgsql.
+check_connection_missing_config_test() ->
+    IncompleteEnv = #{<<"PG_HOST">> => <<"localhost">>},
+    Result = erl_data_shift_db:check_connection(IncompleteEnv),
+    ?assertMatch({error, {missing_config, _}}, Result).
