@@ -93,7 +93,7 @@ RELEASE_DIR="_build/prod/rel/erl_data_shift"
 # so it never drifts out of sync with the actual build.
 VERSION=$(grep -o '{release, {erl_data_shift, "[^"]*"' rebar.config | sed 's/.*"\(.*\)"/\1/')
 OUT_DIR="_build/prod/bin"
-OUT_FILE="${OUT_DIR}/erl_data_shift"
+OUT_FILE="${OUT_DIR}/eds"
 TARBALL="_build/prod/erl_data_shift-release.tar.gz"
 
 mkdir -p "$OUT_DIR"
@@ -101,6 +101,8 @@ tar -C "_build/prod/rel" -czf "$TARBALL" erl_data_shift
 
 # Shell stub: finds its own EOF marker, extracts the appended tarball to a
 # per-version cache dir (skips extraction if already cached), then execs.
+# "foreground" is injected automatically so the user just runs `eds <command>`
+# instead of `eds foreground <command>`.
 cat > "$OUT_FILE" <<STUB
 #!/usr/bin/env bash
 set -e
@@ -110,7 +112,7 @@ if [ ! -x "\${CACHE_DIR}/bin/erl_data_shift" ]; then
     ARCHIVE_LINE=\$(awk '/__ARCHIVE_BELOW__\$/{print NR + 1; exit 0;}' "\$0")
     tail -n +"\${ARCHIVE_LINE}" "\$0" | tar -xz -C "\${CACHE_DIR}" --strip-components=1
 fi
-exec "\${CACHE_DIR}/bin/erl_data_shift" "\$@"
+exec "\${CACHE_DIR}/bin/erl_data_shift" foreground "\$@"
 exit 0
 __ARCHIVE_BELOW__
 STUB

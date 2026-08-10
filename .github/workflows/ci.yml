@@ -36,9 +36,9 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: erl_data_shift-linux-x86_64
+            artifact_name: eds-linux-x86_64
           - os: macos-latest
-            artifact_name: erl_data_shift-macos-arm64
+            artifact_name: eds-macos-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +69,7 @@ jobs:
               ARCHIVE_LINE=\$(awk '/__ARCHIVE_BELOW__\$/{print NR + 1; exit 0;}' "\$0")
               tail -n +"\${ARCHIVE_LINE}" "\$0" | tar -xz -C "\${CACHE_DIR}" --strip-components=1
           fi
-          exec "\${CACHE_DIR}/bin/erl_data_shift" "\$@"
+          exec "\${CACHE_DIR}/bin/erl_data_shift" foreground "\$@"
           exit 0
           __ARCHIVE_BELOW__
           STUB
