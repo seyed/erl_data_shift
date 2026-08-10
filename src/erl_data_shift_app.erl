@@ -1,29 +1,44 @@
 -module(erl_data_shift_app).
 -behaviour(application).
--export([start/2, stop/1]).
+-export([start/2, stop/1, dispatch/1]).
+
+%% Registry mapping subcommand name -> handler fun/0. Add new commands here.
+-define(COMMANDS, #{
+    "con_check" => fun con_check/0,
+    "migrate"   => fun migrate/0
+}).
 
 start(_StartType, _StartArgs) ->
-    io:format("\033[36m~n=== erl_data_shift v0.1.0 ===~n\033[0m"),
-    menu_loop(),
+    print_caution(),
+    Args = init:get_plain_arguments(),
+    dispatch(Args),
     init:stop(0),
     {ok, self()}.
 
 stop(_State) ->
     ok.
 
-%% -- menu --
+%% -- dispatch --
+dispatch([Cmd | _Rest]) ->
+    case maps:find(Cmd, ?COMMANDS) of
+        {ok, Handler} -> Handler();
+        error -> print_usage(io_lib:format("Unknown command: ~s", [Cmd]))
+    end;
+dispatch([]) ->
+    print_usage("No command given.").
 
-menu_loop() ->
-    io:format("~n1) Test Postgres connectivity (via .env)~n"),
-    io:format("2) Exit~n"),
-    Choice = string:trim(io:get_line("Choice: ")),
-    case Choice of
-        "1" -> test_connectivity(), menu_loop();
-        "2" -> io:format("Bye.~n");
-        _   -> io:format("Invalid choice.~n"), menu_loop()
-    end.
+print_usage(Message) ->
+    io:format("\033[31m~s~n\033[0m", [Message]),
+    io:format("Usage: eds <command>~n"),
+    io:format("Commands:~n"),
+    lists:foreach(fun(Name) -> io:format("  ~s~n", [Name]) end, maps:keys(?COMMANDS)).
 
-test_connectivity() ->
+print_caution() ->
+    io:format("\033[33mCAUTION: You are responsible for any actions taken by this tool. "
+              "We accept no liability for data loss — back up your data before proceeding.~n\033[0m").
+
+%% -- commands --
+con_check() ->
     case erl_data_shift_env:load() of
         {ok, Env} ->
             case erl_data_shift_db:check_connection(Env) of
@@ -35,3 +50,7 @@ test_connectivity() ->
         {error, Reason} ->
             io:format("\033[31m❌ Could not read .env: ~p (create one with PG_HOST, PG_PORT, PG_USER, PG_PASSWORD, PG_DATABASE)~n\033[0m", [Reason])
     end.
+
+%% Placeholder for now — real step-by-step migration logic lands in a later tag.
+migrate() ->
+    io:format("migrate~n").
