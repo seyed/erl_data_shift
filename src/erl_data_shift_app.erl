@@ -9,6 +9,7 @@
 }).
 
 start(_StartType, _StartArgs) ->
+    io:setopts(standard_io, [{encoding, unicode}]),
     print_caution(),
     Args = init:get_plain_arguments(),
     dispatch(Args),
@@ -35,14 +36,14 @@ dispatch([]) ->
 run_command([Cmd | _Rest]) ->
     case maps:find(Cmd, ?COMMANDS) of
         {ok, Handler} -> Handler();
-        error -> print_usage(io_lib:format("Unknown command: ~s", [Cmd]))
+        error -> print_usage(io_lib:format("Unknown command: ~ts", [Cmd]))
     end.
 
 print_usage(Message) ->
-    io:format("\033[31m~s~n\033[0m", [Message]),
+    io:format("\033[31m~ts~n\033[0m", [Message]),
     io:format("Usage: eds <command>~n"),
     io:format("Commands:~n"),
-    lists:foreach(fun(Name) -> io:format("  ~s~n", [Name]) end, maps:keys(?COMMANDS)).
+    lists:foreach(fun(Name) -> io:format("  ~ts~n", [Name]) end, maps:keys(?COMMANDS)).
 
 print_caution() ->
     Lines = [
@@ -54,11 +55,11 @@ print_caution() ->
     ],
     InnerWidth = lists:max([length(L) || L <- Lines]),
     Border = "+" ++ lists:duplicate(InnerWidth + 2, $-) ++ "+",
-    io:format("\033[33m~s~n", [Border]),
+    io:format("\033[33m~ts~n", [Border]),
     lists:foreach(fun(L) ->
-        io:format("| ~s |~n", [pad(L, InnerWidth)])
+        io:format("| ~ts |~n", [pad(L, InnerWidth)])
     end, Lines),
-    io:format("~s~n\033[0m", [Border]).
+    io:format("~ts~n\033[0m", [Border]).
 
 pad(Text, Width) ->
     Text ++ lists:duplicate(Width - length(Text), $\s).
