@@ -1,9 +1,16 @@
 -module(erl_data_shift_env).
 -export([load/0, load/1, get/2]).
 
-%% Loads .env from the current working directory.
+%% Loads .env from the directory the user actually invoked the binary from.
+%% relx's launcher script cd's into the release root before starting the VM,
+%% so plain "." would resolve to the wrong place — the wrapper script exports
+%% EDS_ORIGINAL_CWD before exec so we can find the real invocation directory.
 load() ->
-    load(".env").
+    BaseDir = case os:getenv("EDS_ORIGINAL_CWD") of
+        false -> ".";
+        Dir -> Dir
+    end,
+    load(filename:join(BaseDir, ".env")).
 
 %% Loads a KEY=VALUE file into a map. Skips blank lines and lines starting
 %% with '#'. Returns {ok, Map} or {error, Reason} if the file is missing.

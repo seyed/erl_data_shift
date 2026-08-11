@@ -16,10 +16,17 @@ check_connection(Env) ->
 
 do_connect(Env) ->
     Host = binary_to_list(erl_data_shift_env:get(<<"PG_HOST">>, Env)),
-    Port = list_to_integer(binary_to_list(erl_data_shift_env:get(<<"PG_PORT">>, Env))),
+    PortStr = binary_to_list(erl_data_shift_env:get(<<"PG_PORT">>, Env)),
     User = binary_to_list(erl_data_shift_env:get(<<"PG_USER">>, Env)),
     Pass = binary_to_list(erl_data_shift_env:get(<<"PG_PASSWORD">>, Env)),
     Db   = binary_to_list(erl_data_shift_env:get(<<"PG_DATABASE">>, Env)),
+
+    case string:to_integer(PortStr) of
+        {Port, ""} -> connect(Host, Port, User, Pass, Db);
+        _ -> {error, {invalid_port, PortStr}}
+    end.
+
+connect(Host, Port, User, Pass, Db) ->
 
     case epgsql:connect(#{
         host => Host, port => Port, username => User,
