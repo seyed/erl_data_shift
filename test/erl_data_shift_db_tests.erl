@@ -41,3 +41,15 @@ check_connection_invalid_port_test() ->
     BadEnv = maps:put(<<"PG_PORT">>, <<"change-me">>, sample_env()),
     Result = erl_data_shift_db:check_connection(BadEnv),
     ?assertMatch({error, {invalid_port, _}}, Result).
+
+%% epgsql:connect can crash a linked process (e.g. econnrefused) instead of
+%% returning {error, Reason} — confirm the spawn_monitor isolation in
+%% connect/5 still yields a clean {error, _} instead of killing the caller.
+check_connection_survives_epgsql_crash_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(_Opts) -> exit(econnrefused) end),
+
+    Result = erl_data_shift_db:check_connection(sample_env()),
+
+    ?assertMatch({error, _}, Result),
+    meck:unload(epgsql).
