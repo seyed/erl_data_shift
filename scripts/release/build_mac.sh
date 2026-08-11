@@ -112,6 +112,7 @@ if [ ! -x "\${CACHE_DIR}/bin/erl_data_shift" ]; then
     ARCHIVE_LINE=\$(awk '/__ARCHIVE_BELOW__\$/{print NR + 1; exit 0;}' "\$0")
     tail -n +"\${ARCHIVE_LINE}" "\$0" | tar -xz -C "\${CACHE_DIR}" --strip-components=1
 fi
+export EDS_ORIGINAL_CWD="\$(pwd)"
 exec "\${CACHE_DIR}/bin/erl_data_shift" foreground "\$@"
 exit 0
 __ARCHIVE_BELOW__
