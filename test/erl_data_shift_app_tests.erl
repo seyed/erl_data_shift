@@ -15,10 +15,12 @@ stop_returns_ok_test() ->
 dispatch_migrate_does_not_crash_test() ->
     ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate"])).
 
-%% con_check hits erl_data_shift_env/db under the hood; here we only assert
-%% it dispatches without crashing. .env may or may not be present in the
-%% test working dir — both are valid, already-handled outcomes (see
-%% erl_data_shift_env_tests / erl_data_shift_db_tests for that coverage).
+%% con_check hits erl_data_shift_env/db under the hood, including the
+%% masked .env summary print (print_env_summary/1) on connection failure;
+%% here we only assert it dispatches without crashing. .env may or may not
+%% be present in the test working dir — both are valid, already-handled
+%% outcomes (see erl_data_shift_env_tests / erl_data_shift_db_tests for
+%% that coverage).
 dispatch_con_check_does_not_crash_test() ->
     ?assertEqual(ok, erl_data_shift_app:dispatch(["con_check"])).
 
