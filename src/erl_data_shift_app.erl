@@ -67,16 +67,21 @@ pad(Text, Width) ->
 %% -- commands --
 
 con_check() ->
-    case erl_data_shift_env:load() of
-        {ok, Env} ->
-            case erl_data_shift_db:check_connection(Env) of
-                {ok, connected} ->
-                    io:format("\033[32m✅ Connected to Postgres.~n\033[0m");
-                {error, Reason} ->
-                    io:format("\033[31m❌ Connection failed: ~p~n\033[0m", [Reason])
-            end;
-        {error, Reason} ->
-            io:format("\033[31m❌ Could not read .env: ~p (create one with PG_HOST, PG_PORT, PG_USER, PG_PASSWORD, PG_DATABASE)~n\033[0m", [Reason])
+    try
+        case erl_data_shift_env:load() of
+            {ok, Env} ->
+                case erl_data_shift_db:check_connection(Env) of
+                    {ok, connected} ->
+                        io:format("\033[32m✅ Connected to Postgres.~n\033[0m");
+                    {error, Reason} ->
+                        io:format("\033[31m❌ Connection failed: ~p~n\033[0m", [Reason])
+                end;
+            {error, Reason} ->
+                io:format("\033[31m❌ Could not read .env: ~p (create one with PG_HOST, PG_PORT, PG_USER, PG_PASSWORD, PG_DATABASE)~n\033[0m", [Reason])
+        end
+    catch
+        Class:Err ->
+            io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
 
 %% Placeholder for now — real step-by-step migration logic lands in a later tag.
