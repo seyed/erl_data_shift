@@ -81,3 +81,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: _build/prod/bin/${{ matrix.artifact_name }}
+          overwrite: true
