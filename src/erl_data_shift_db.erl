@@ -27,14 +27,22 @@ do_connect(Env) ->
     end.
 
 connect(Host, Port, User, Pass, Db) ->
-
-    case epgsql:connect(#{
-        host => Host, port => Port, username => User,
-        password => Pass, database => Db, timeout => 5000
-    }) of
-        {ok, Conn} ->
-            epgsql:close(Conn),
-            {ok, connected};
-        {error, Reason} ->
-            {error, Reason}
+    %% epgsql:connect can crash a linked process on refused/failed connections
+    %% rather than always returning {error, Reason} — isolate it in a
+    %% monitored process so failures never propagate and kill our caller.
+    {Pid, Ref} = spawn_monitor(fun() ->
+        Result = epgsql:connect(#{
+            host => Host, port => Port, username => User,
+            password => Pass, database => Db, timeout => 5000
+        }),
+        case Result of
+            {ok, Conn} -> epgsql:close(Conn), exit({eds_result, {ok, connected}});
+            {error, Reason} -> exit({eds_result, {error, Reason}})
+        end
+    end),
+    receive
+        {'DOWN', Ref, process, Pid, {eds_result, Result}} -> Result;
+        {'DOWN', Ref, process, Pid, Reason} -> {error, Reason}
+    after 6000 ->
+        {error, timeout}
     end.
