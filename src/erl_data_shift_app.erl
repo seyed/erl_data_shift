@@ -74,7 +74,9 @@ con_check() ->
                     {ok, connected} ->
                         io:format("\033[32m✅ Connected to Postgres.~n\033[0m");
                     {error, Reason} ->
-                        io:format("\033[31m❌ Connection failed: ~p~n\033[0m", [Reason])
+                        io:format("\033[31m❌ Postgres is not reachable with the following .env values:~n\033[0m"),
+                        print_env_summary(Env),
+                        io:format("\033[31mReason: ~p~n\033[0m", [Reason])
                 end;
             {error, Reason} ->
                 io:format("\033[31m❌ Could not read .env: ~p (create one with PG_HOST, PG_PORT, PG_USER, PG_PASSWORD, PG_DATABASE)~n\033[0m", [Reason])
@@ -87,3 +89,10 @@ con_check() ->
 %% Placeholder for now — real step-by-step migration logic lands in a later tag.
 migrate() ->
     io:format("migrate~n").
+
+print_env_summary(Env) ->
+    io:format("  PG_HOST=~ts~n", [maps:get(<<"PG_HOST">>, Env, <<>>)]),
+    io:format("  PG_PORT=~ts~n", [maps:get(<<"PG_PORT">>, Env, <<>>)]),
+    io:format("  PG_USER=~ts~n", [maps:get(<<"PG_USER">>, Env, <<>>)]),
+    io:format("  PG_PASSWORD=****~n"),
+    io:format("  PG_DATABASE=~ts~n", [maps:get(<<"PG_DATABASE">>, Env, <<>>)]).
