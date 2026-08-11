@@ -34,3 +34,10 @@ check_connection_missing_config_test() ->
     IncompleteEnv = #{<<"PG_HOST">> => <<"localhost">>},
     Result = erl_data_shift_db:check_connection(IncompleteEnv),
     ?assertMatch({error, {missing_config, _}}, Result).
+
+%% Sad path: non-numeric PG_PORT (e.g. leftover "change-me" placeholder)
+%% fails cleanly instead of crashing list_to_integer.
+check_connection_invalid_port_test() ->
+    BadEnv = maps:put(<<"PG_PORT">>, <<"change-me">>, sample_env()),
+    Result = erl_data_shift_db:check_connection(BadEnv),
+    ?assertMatch({error, {invalid_port, _}}, Result).
