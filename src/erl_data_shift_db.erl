@@ -60,7 +60,7 @@ run_isolated(Fun, ConnOpts) ->
 query_stats(Conn) ->
     Sql = "SELECT relname, n_live_tup, pg_total_relation_size(relid) "
           "FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC",
-    case epgsql:squery(Conn, Sql) of
+    case epgsql:equery(Conn, Sql, []) of
         {ok, _Cols, Rows} ->
             {ok, [#{name => Name, rows => sanitize_null(RowCount), size_bytes => sanitize_null(SizeBytes)}
                   || {Name, RowCount, SizeBytes} <- Rows]};
@@ -69,6 +69,6 @@ query_stats(Conn) ->
     end.
 
 %% SQL NULL (e.g. an unanalyzed table's n_live_tup) comes back as the atom
-%% 'null' from epgsql — coerce it to 0 so downstream arithmetic doesn't crash.
+%% 'null' from epgsql — sanitize it to 0 so downstream arithmetic doesn't crash.
 sanitize_null(null) -> 0;
 sanitize_null(Value) -> Value.
