@@ -38,3 +38,8 @@ dispatch_empty_args_does_not_crash_test() ->
 %% and runs end-to-end without crashing after the unicode fix.
 dispatch_after_unicode_fix_does_not_crash_test() ->
     ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate"])).
+
+%% stat hits erl_data_shift_env/db under the hood (same pattern as con_check);
+%% here we only assert it dispatches without crashing.
+dispatch_stat_does_not_crash_test() ->
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["stat"])).
