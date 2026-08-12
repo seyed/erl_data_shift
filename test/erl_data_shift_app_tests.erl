@@ -43,3 +43,8 @@ dispatch_after_unicode_fix_does_not_crash_test() ->
 %% here we only assert it dispatches without crashing.
 dispatch_stat_does_not_crash_test() ->
     ?assertEqual(ok, erl_data_shift_app:dispatch(["stat"])).
+
+%% migrate now accepts -f/--path — confirm it dispatches without crashing
+%% even when pointed at a directory that doesn't exist (graceful handling).
+dispatch_migrate_with_missing_path_does_not_crash_test() ->
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "-f", "/tmp/eds_no_such_dir"])).
