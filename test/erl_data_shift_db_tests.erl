@@ -101,3 +101,42 @@ get_table_stats_coerces_null_to_zero_test() ->
 
     ?assertEqual({ok, [#{name => <<"new_table">>, rows => 0, size_bytes => 0}]}, Result),
     meck:unload(epgsql).
+
+%% -- get_migration_history/1 --
+
+get_migration_history_success_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(_Opts) -> {ok, fake_conn} end),
+    meck:expect(epgsql, equery, fun(_Conn, Sql, _Params) ->
+        case string:find(Sql, "information_schema") of
+            nomatch ->
+                %% the SELECT * FROM schema_migrations query
+                {ok, [{column, <<"version">>, int8, 0, 8, -1, 0}], [{20240101000000}, {20240102000000}]};
+            _ ->
+                %% the table-detection query
+                {ok, [{column, <<"table_name">>, text, 0, -1, -1, 0}], [{<<"schema_migrations">>}]}
+        end
+    end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
+
+    Result = erl_data_shift_db:get_migration_history(sample_env()),
+
+    ?assertMatch({ok, {<<"schema_migrations">>, [<<"version">>], [{20240101000000}, {20240102000000}]}}, Result),
+    meck:unload(epgsql).
+
+get_migration_history_no_table_found_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(_Opts) -> {ok, fake_conn} end),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, _Params) ->
+        {ok, [{column, <<"table_name">>, text, 0, -1, -1, 0}], []}
+    end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
+
+    Result = erl_data_shift_db:get_migration_history(sample_env()),
+
+    ?assertEqual({error, no_migration_table_found}, Result),
+    meck:unload(epgsql).
+
+get_migration_history_missing_config_test() ->
+    Result = erl_data_shift_db:get_migration_history(#{}),
+    ?assertMatch({error, {missing_config, _}}, Result).
