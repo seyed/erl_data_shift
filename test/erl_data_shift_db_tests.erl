@@ -53,3 +53,36 @@ check_connection_survives_epgsql_crash_test() ->
 
     ?assertMatch({error, _}, Result),
     meck:unload(epgsql).
+
+%% -- get_table_stats/1 --
+
+get_table_stats_success_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(_Opts) -> {ok, fake_conn} end),
+    meck:expect(epgsql, squery, fun(_Conn, _Sql) ->
+        {ok, [col1, col2, col3], [{<<"users">>, 100, 8192}, {<<"orders">>, 50, 4096}]}
+    end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
+
+    Result = erl_data_shift_db:get_table_stats(sample_env()),
+
+    ?assertEqual({ok, [
+        #{name => <<"users">>, rows => 100, size_bytes => 8192},
+        #{name => <<"orders">>, rows => 50, size_bytes => 4096}
+    ]}, Result),
+    meck:unload(epgsql).
+
+get_table_stats_query_failure_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(_Opts) -> {ok, fake_conn} end),
+    meck:expect(epgsql, squery, fun(_Conn, _Sql) -> {error, some_sql_error} end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
+
+    Result = erl_data_shift_db:get_table_stats(sample_env()),
+
+    ?assertEqual({error, some_sql_error}, Result),
+    meck:unload(epgsql).
+
+get_table_stats_missing_config_test() ->
+    Result = erl_data_shift_db:get_table_stats(#{}),
+    ?assertMatch({error, {missing_config, _}}, Result).
