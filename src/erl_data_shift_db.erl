@@ -62,8 +62,13 @@ query_stats(Conn) ->
           "FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC",
     case epgsql:squery(Conn, Sql) of
         {ok, _Cols, Rows} ->
-            {ok, [#{name => Name, rows => RowCount, size_bytes => SizeBytes}
+            {ok, [#{name => Name, rows => sanitize_null(RowCount), size_bytes => sanitize_null(SizeBytes)}
                   || {Name, RowCount, SizeBytes} <- Rows]};
         {error, Reason} ->
             {error, Reason}
     end.
+
+%% SQL NULL (e.g. an unanalyzed table's n_live_tup) comes back as the atom
+%% 'null' from epgsql — coerce it to 0 so downstream arithmetic doesn't crash.
+sanitize_null(null) -> 0;
+sanitize_null(Value) -> Value.
