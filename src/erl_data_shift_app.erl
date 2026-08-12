@@ -6,7 +6,8 @@
 -define(COMMANDS, #{
     "con_check" => fun(_Args) -> con_check() end,
     "migrate"   => fun migrate/1,
-    "stat"      => fun(_Args) -> stat() end
+    "stat"      => fun(_Args) -> stat() end,
+    "history"   => fun(_Args) -> history() end
 }).
 
 start(_StartType, _StartArgs) ->
@@ -134,6 +135,48 @@ human_size(Bytes) when Bytes >= 1073741824 -> io_lib:format("~.2f GB", [Bytes / 
 human_size(Bytes) when Bytes >= 1048576    -> io_lib:format("~.2f MB", [Bytes / 1048576]);
 human_size(Bytes) when Bytes >= 1024       -> io_lib:format("~.2f KB", [Bytes / 1024]);
 human_size(Bytes)                          -> io_lib:format("~B B", [Bytes]).
+
+history() ->
+    try
+        case erl_data_shift_env:load() of
+            {ok, Env} ->
+                case erl_data_shift_db:get_migration_history(Env) of
+                    {ok, {Table, Cols, Rows}} -> print_history(Table, Cols, Rows);
+                    {error, no_migration_table_found} ->
+                        io:format("\033[33m⚠️  No known migrations table found "
+                                  "(looked for schema_migrations, flyway_schema_history, "
+                                  "ecto_schema_migrations, alembic_version).~n\033[0m");
+                    {error, Reason} ->
+                        io:format("\033[31m❌ Could not fetch migration history: ~p~n\033[0m", [Reason])
+                end;
+            {error, Reason} ->
+                io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason])
+        end
+    catch
+        Class:Err ->
+            io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
+    end.
+
+print_history(_Table, _Cols, []) ->
+    io:format("No migrations recorded yet.~n");
+print_history(Table, Cols, Rows) ->
+    io:format("\033[36m~n=== ~ts (~B applied) ===~n\033[0m", [Table, length(Rows)]),
+    Widths = [max(length(binary_to_list(C)), 12) || C <- Cols],
+    print_row([binary_to_list(C) || C <- Cols], Widths),
+    io:format("~s~n", [lists:duplicate(lists:sum(Widths) + length(Widths), $-)]),
+    lists:foreach(fun(Row) ->
+        Cells = [format_cell(V) || V <- tuple_to_list(Row)],
+        print_row(Cells, Widths)
+    end, Rows).
+
+print_row(Cells, Widths) ->
+    Padded = lists:zipwith(fun(Cell, W) -> string:pad(Cell, W) end, Cells, Widths),
+    io:format("~ts~n", [lists:join(" ", Padded)]).
+
+format_cell(null) -> "NULL";
+format_cell(V) when is_binary(V) -> binary_to_list(V);
+format_cell(V) when is_integer(V) -> integer_to_list(V);
+format_cell(V) -> io_lib:format("~p", [V]).
 
 print_env_summary(Env) ->
     io:format("  PG_HOST=~ts~n", [maps:get(<<"PG_HOST">>, Env, <<>>)]),
