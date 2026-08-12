@@ -5,7 +5,8 @@
 %% Registry mapping subcommand name -> handler fun/0. Add new commands here.
 -define(COMMANDS, #{
     "con_check" => fun con_check/0,
-    "migrate"   => fun migrate/0
+    "migrate"   => fun migrate/0,
+    "stat"      => fun stat/0
 }).
 
 start(_StartType, _StartArgs) ->
@@ -89,6 +90,39 @@ con_check() ->
 %% Placeholder for now — real step-by-step migration logic lands in a later tag.
 migrate() ->
     io:format("migrate~n").
+
+stat() ->
+    try
+        case erl_data_shift_env:load() of
+            {ok, Env} ->
+                case erl_data_shift_db:get_table_stats(Env) of
+                    {ok, Rows} -> print_stats(Rows);
+                    {error, Reason} ->
+                        io:format("\033[31m❌ Could not fetch stats:~n\033[0m"),
+                        print_env_summary(Env),
+                        io:format("\033[31mReason: ~p~n\033[0m", [Reason])
+                end;
+            {error, Reason} ->
+                io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason])
+        end
+    catch
+        Class:Err ->
+            io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
+    end.
+
+print_stats([]) ->
+    io:format("No tables found.~n");
+print_stats(Rows) ->
+    io:format("~n~-30s ~12s ~12s~n", ["Table", "Rows", "Size"]),
+    io:format("~s~n", [lists:duplicate(56, $-)]),
+    lists:foreach(fun(#{name := Name, rows := RowCount, size_bytes := Bytes}) ->
+        io:format("~-30ts ~12B ~12s~n", [Name, RowCount, human_size(Bytes)])
+    end, Rows).
+
+human_size(Bytes) when Bytes >= 1073741824 -> io_lib:format("~.2f GB", [Bytes / 1073741824]);
+human_size(Bytes) when Bytes >= 1048576    -> io_lib:format("~.2f MB", [Bytes / 1048576]);
+human_size(Bytes) when Bytes >= 1024       -> io_lib:format("~.2f KB", [Bytes / 1024]);
+human_size(Bytes)                          -> io_lib:format("~B B", [Bytes]).
 
 print_env_summary(Env) ->
     io:format("  PG_HOST=~ts~n", [maps:get(<<"PG_HOST">>, Env, <<>>)]),
