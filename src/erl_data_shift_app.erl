@@ -4,9 +4,9 @@
 
 %% Registry mapping subcommand name -> handler fun/0. Add new commands here.
 -define(COMMANDS, #{
-    "con_check" => fun con_check/0,
-    "migrate"   => fun migrate/0,
-    "stat"      => fun stat/0
+    "con_check" => fun(_Args) -> con_check() end,
+    "migrate"   => fun migrate/1,
+    "stat"      => fun(_Args) -> stat() end
 }).
 
 start(_StartType, _StartArgs) ->
@@ -34,9 +34,9 @@ dispatch([Verb | Rest]) ->
 dispatch([]) ->
     print_usage("No command given.").
 
-run_command([Cmd | _Rest]) ->
+run_command([Cmd | Rest]) ->
     case maps:find(Cmd, ?COMMANDS) of
-        {ok, Handler} -> Handler();
+        {ok, Handler} -> Handler(Rest);
         error -> print_usage(io_lib:format("Unknown command: ~ts", [Cmd]))
     end.
 
@@ -87,9 +87,20 @@ con_check() ->
             io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
 
-%% Placeholder for now — real step-by-step migration logic lands in a later tag.
-migrate() ->
-    io:format("migrate~n").
+%% Path detection + graceful error handling first — actual migration
+%% execution (running pending .sql files against Postgres) lands next.
+migrate(Args) ->
+    {Dir, _RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
+    case erl_data_shift_migrations:list_sql_files(Dir) of
+        {ok, Files} ->
+            io:format("Migrations directory: ~ts~n", [Dir]),
+            io:format("Found ~B .sql file(s).~n", [length(Files)]);
+        {error, {directory_not_found, Dir}} ->
+            io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [Dir]),
+            io:format("Create it, or point to another one with: eds migrate -f <path>~n");
+        {error, Reason} ->
+            io:format("\033[31m❌ Could not list migrations: ~p~n\033[0m", [Reason])
+    end.
 
 stat() ->
     try
