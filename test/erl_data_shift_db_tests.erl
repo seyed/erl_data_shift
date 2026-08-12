@@ -59,7 +59,7 @@ check_connection_survives_epgsql_crash_test() ->
 get_table_stats_success_test() ->
     meck:new(epgsql, [non_strict]),
     meck:expect(epgsql, connect, fun(_Opts) -> {ok, fake_conn} end),
-    meck:expect(epgsql, squery, fun(_Conn, _Sql) ->
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, _Params) ->
         {ok, [col1, col2, col3], [{<<"users">>, 100, 8192}, {<<"orders">>, 50, 4096}]}
     end),
     meck:expect(epgsql, close, fun(_Conn) -> ok end),
@@ -75,7 +75,7 @@ get_table_stats_success_test() ->
 get_table_stats_query_failure_test() ->
     meck:new(epgsql, [non_strict]),
     meck:expect(epgsql, connect, fun(_Opts) -> {ok, fake_conn} end),
-    meck:expect(epgsql, squery, fun(_Conn, _Sql) -> {error, some_sql_error} end),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, _Params) -> {error, some_sql_error} end),
     meck:expect(epgsql, close, fun(_Conn) -> ok end),
 
     Result = erl_data_shift_db:get_table_stats(sample_env()),
@@ -92,7 +92,7 @@ get_table_stats_missing_config_test() ->
 get_table_stats_coerces_null_to_zero_test() ->
     meck:new(epgsql, [non_strict]),
     meck:expect(epgsql, connect, fun(_Opts) -> {ok, fake_conn} end),
-    meck:expect(epgsql, squery, fun(_Conn, _Sql) ->
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, _Params) ->
         {ok, [col1, col2, col3], [{<<"new_table">>, null, null}]}
     end),
     meck:expect(epgsql, close, fun(_Conn) -> ok end),
