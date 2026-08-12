@@ -1,5 +1,7 @@
 -module(erl_data_shift_db).
--export([check_connection/1, get_table_stats/1]).
+-export([check_connection/1
+         , get_table_stats/1
+         , get_migration_history/1]).
 
 -define(REQUIRED_KEYS, [<<"PG_HOST">>, <<"PG_PORT">>, <<"PG_USER">>, <<"PG_PASSWORD">>, <<"PG_DATABASE">>]).
 
@@ -15,7 +17,17 @@ check_connection(Env) ->
 get_table_stats(Env) ->
     with_params(Env, fun(Params) -> run_isolated(fun query_stats/1, Params) end).
 
-%% -- internal --
+%% Fetches rows from whichever known migration-tracker table exists
+%% (schema_migrations, flyway_schema_history, ecto_schema_migrations,
+%% alembic_version), reading columns dynamically so it works regardless of
+%% which tool created it. Returns {ok, {TableName, ColumnNames, Rows}}.
+-define(MIGRATION_TABLE_CANDIDATES,
+    [<<"schema_migrations">>, <<"flyway_schema_history">>,
+     <<"ecto_schema_migrations">>, <<"alembic_version">>]).
+
+-spec get_migration_history(map()) -> {ok, {binary(), [binary()], [tuple()]}} | {error, term()}.
+get_migration_history(Env) ->
+    with_params(Env, fun(Params) -> run_isolated(fun query_history/1, Params) end).
 
 with_params(Env, Fun) ->
     Missing = [K || K <- ?REQUIRED_KEYS, erl_data_shift_env:get(K, Env) =:= undefined],
@@ -72,3 +84,31 @@ query_stats(Conn) ->
 %% 'null' from epgsql — sanitize it to 0 so downstream arithmetic doesn't crash.
 sanitize_null(null) -> 0;
 sanitize_null(Value) -> Value.
+
+query_history(Conn) ->
+    case find_migration_table(Conn) of
+        {ok, Table} ->
+            TableStr = binary_to_list(Table),
+            Sql = "SELECT * FROM " ++ TableStr ++ " ORDER BY 1",
+            case epgsql:equery(Conn, Sql, []) of
+                {ok, Cols, Rows} ->
+                    ColNames = [element(2, C) || C <- Cols], %% #column.name is field 2
+                    {ok, {Table, ColNames, Rows}};
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        none ->
+            {error, no_migration_table_found}
+    end.
+
+%% Checks information_schema for the first known migration-tracker table
+%% name that actually exists in the 'public' schema.
+find_migration_table(Conn) ->
+    Sql = "SELECT table_name FROM information_schema.tables "
+          "WHERE table_schema = 'public' AND table_name = ANY($1) "
+          "ORDER BY array_position($1, table_name) LIMIT 1",
+    case epgsql:equery(Conn, Sql, [?MIGRATION_TABLE_CANDIDATES]) of
+        {ok, _Cols, [{Name}]} -> {ok, Name};
+        {ok, _Cols, []} -> none;
+        {error, _Reason} -> none
+    end.
