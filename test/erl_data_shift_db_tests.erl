@@ -86,3 +86,18 @@ get_table_stats_query_failure_test() ->
 get_table_stats_missing_config_test() ->
     Result = erl_data_shift_db:get_table_stats(#{}),
     ?assertMatch({error, {missing_config, _}}, Result).
+
+%% SQL NULL (e.g. n_live_tup on an unanalyzed table) previously crashed
+%% downstream size arithmetic with badarith — confirm it's coerced to 0.
+get_table_stats_coerces_null_to_zero_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(_Opts) -> {ok, fake_conn} end),
+    meck:expect(epgsql, squery, fun(_Conn, _Sql) ->
+        {ok, [col1, col2, col3], [{<<"new_table">>, null, null}]}
+    end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
+
+    Result = erl_data_shift_db:get_table_stats(sample_env()),
+
+    ?assertEqual({ok, [#{name => <<"new_table">>, rows => 0, size_bytes => 0}]}, Result),
+    meck:unload(epgsql).
