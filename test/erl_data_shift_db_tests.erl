@@ -140,3 +140,16 @@ get_migration_history_no_table_found_test() ->
 get_migration_history_missing_config_test() ->
     Result = erl_data_shift_db:get_migration_history(#{}),
     ?assertMatch({error, {missing_config, _}}, Result).
+
+%% A real query error during table detection (e.g. type mismatch) must be
+%% surfaced, not silently collapsed into no_migration_table_found.
+get_migration_history_detection_query_error_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(_Opts) -> {ok, fake_conn} end),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, _Params) -> {error, some_detection_error} end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
+
+    Result = erl_data_shift_db:get_migration_history(sample_env()),
+
+    ?assertEqual({error, some_detection_error}, Result),
+    meck:unload(epgsql).
