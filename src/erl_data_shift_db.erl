@@ -1,7 +1,5 @@
 -module(erl_data_shift_db).
--export([check_connection/1
-         , get_table_stats/1
-         , get_migration_history/1]).
+-export([check_connection/1, get_table_stats/1, get_migration_history/1]).
 
 -define(REQUIRED_KEYS, [<<"PG_HOST">>, <<"PG_PORT">>, <<"PG_USER">>, <<"PG_PASSWORD">>, <<"PG_DATABASE">>]).
 
@@ -98,17 +96,20 @@ query_history(Conn) ->
                     {error, Reason}
             end;
         none ->
-            {error, no_migration_table_found}
+            {error, no_migration_table_found};
+        {error, Reason} ->
+            {error, Reason}
     end.
 
 %% Checks information_schema for the first known migration-tracker table
-%% name that actually exists in the 'public' schema.
+%% name that actually exists (any schema on the search path, not just
+%% 'public' — some tools create it elsewhere).
 find_migration_table(Conn) ->
     Sql = "SELECT table_name FROM information_schema.tables "
-          "WHERE table_schema = 'public' AND table_name = ANY($1) "
-          "ORDER BY array_position($1, table_name) LIMIT 1",
+          "WHERE table_name = ANY($1::text[]) "
+          "ORDER BY array_position($1::text[], table_name) LIMIT 1",
     case epgsql:equery(Conn, Sql, [?MIGRATION_TABLE_CANDIDATES]) of
         {ok, _Cols, [{Name}]} -> {ok, Name};
         {ok, _Cols, []} -> none;
-        {error, _Reason} -> none
+        {error, Reason} -> {error, Reason}
     end.
