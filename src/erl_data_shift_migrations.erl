@@ -1,5 +1,5 @@
 -module(erl_data_shift_migrations).
--export([resolve_dir/1, list_sql_files/1]).
+-export([resolve_dir/1, list_sql_files/1, extract_version/1, read_file/1]).
 
 %% Resolves the migrations directory from CLI args. Looks for "-f <path>" or
 %% "--path <path>"; defaults to "<original_cwd>/migrations" if not given.
@@ -35,3 +35,23 @@ take_flag(["-f", Path | Rest]) -> {ok, Path, Rest};
 take_flag(["--path", Path | Rest]) -> {ok, Path, Rest};
 take_flag([_ | Rest]) -> take_flag(Rest);
 take_flag([]) -> none.
+
+%% -- shared helpers (also used by app.erl's drift check) --
+
+%% Extracts the leading numeric version prefix from a filename or a raw
+%% version string, e.g. "0001_init.sql" -> "0001", "001" -> "001". Falls
+%% back to the original string if no leading digits are found.
+-spec extract_version(string()) -> string().
+extract_version(Str) when is_list(Str) ->
+    case re:run(Str, "^([0-9]+)", [{capture, first, list}]) of
+        {match, [Digits]} -> Digits;
+        nomatch -> Str
+    end.
+
+%% Reads a migration file's SQL content as a string.
+-spec read_file(file:filename()) -> {ok, string()} | {error, term()}.
+read_file(Path) ->
+    case file:read_file(Path) of
+        {ok, Bin} -> {ok, binary_to_list(Bin)};
+        {error, Reason} -> {error, Reason}
+    end.
