@@ -153,3 +153,93 @@ get_migration_history_detection_query_error_test() ->
 
     ?assertEqual({error, some_detection_error}, Result),
     meck:unload(epgsql).
+
+%% -- ensure_migrations_table/1 --
+
+ensure_migrations_table_success_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, squery, fun(_Conn, _Sql) -> {ok, [], []} end),
+    ?assertEqual(ok, erl_data_shift_db:ensure_migrations_table(fake_conn)),
+    meck:unload(epgsql).
+
+ensure_migrations_table_failure_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, squery, fun(_Conn, _Sql) -> {error, some_ddl_error} end),
+    ?assertEqual({error, some_ddl_error}, erl_data_shift_db:ensure_migrations_table(fake_conn)),
+    meck:unload(epgsql).
+
+%% -- get_applied_versions/1 --
+
+get_applied_versions_success_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, []) ->
+        {ok, [col], [{<<"0001">>}, {<<"0002">>}]}
+    end),
+    ?assertEqual({ok, ["0001", "0002"]}, erl_data_shift_db:get_applied_versions(fake_conn)),
+    meck:unload(epgsql).
+
+get_applied_versions_failure_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, []) -> {error, table_missing} end),
+    ?assertEqual({error, table_missing}, erl_data_shift_db:get_applied_versions(fake_conn)),
+    meck:unload(epgsql).
+
+%% -- apply_migration/3 --
+
+apply_migration_success_commits_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, squery, fun
+        (_Conn, "BEGIN") -> {ok, [], []};
+        (_Conn, "COMMIT") -> {ok, [], []};
+        (_Conn, "ROLLBACK") -> {ok, [], []};
+        (_Conn, _Sql) -> {ok, [], []} %% the migration's own SQL
+    end),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version]) -> {ok, 1} end),
+
+    Result = erl_data_shift_db:apply_migration(fake_conn, "0001", "CREATE TABLE t(id int);"),
+
+    ?assertEqual(ok, Result),
+    ?assert(meck:called(epgsql, squery, [fake_conn, "COMMIT"])),
+    meck:unload(epgsql).
+
+apply_migration_sql_failure_rolls_back_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, squery, fun
+        (_Conn, "BEGIN") -> {ok, [], []};
+        (_Conn, "ROLLBACK") -> {ok, [], []};
+        (_Conn, _Sql) -> {error, bad_sql}
+    end),
+
+    Result = erl_data_shift_db:apply_migration(fake_conn, "0001", "NOT VALID SQL"),
+
+    ?assertEqual({error, bad_sql}, Result),
+    ?assert(meck:called(epgsql, squery, [fake_conn, "ROLLBACK"])),
+    meck:unload(epgsql).
+
+apply_migration_insert_failure_rolls_back_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, squery, fun
+        (_Conn, "BEGIN") -> {ok, [], []};
+        (_Conn, "ROLLBACK") -> {ok, [], []};
+        (_Conn, _Sql) -> {ok, [], []}
+    end),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version]) -> {error, duplicate_version} end),
+
+    Result = erl_data_shift_db:apply_migration(fake_conn, "0001", "CREATE TABLE t(id int);"),
+
+    ?assertEqual({error, duplicate_version}, Result),
+    ?assert(meck:called(epgsql, squery, [fake_conn, "ROLLBACK"])),
+    meck:unload(epgsql).
+
+%% -- with_connection/2 --
+
+with_connection_runs_fun_and_closes_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(_Opts) -> {ok, fake_conn} end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
+
+    Result = erl_data_shift_db:with_connection(sample_env(), fun(Conn) -> {ok, Conn} end),
+
+    ?assertEqual({ok, fake_conn}, Result),
+    ?assert(meck:called(epgsql, close, [fake_conn])),
+    meck:unload(epgsql).
