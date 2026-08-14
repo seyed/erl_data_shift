@@ -1,19 +1,17 @@
 # erl_data_shift (アールデータシフト)
 
-Cross-platform CLI for PostgreSQL migrations. Builds, runs, and verifies database schemas via a simple commands. Zero dependencies for the end-user. 
+## 🎯 <b>Aim and Goals</b>
+<b>Aim</b>. Cross-platform CLI for PostgreSQL migrations. 
 
---- 
+<b>Goal #1</b>: 
+Builds, runs, and verifies database schemas via a simple commands. 
 
-<!-- COVERAGE-START -->
-### 🧪 Test Coverage — Overall: 53%
+<b>Goal #2</b>: 
+Zero dependencies for the end-user. 
 
-| Module | Coverage |
-|---|---|
-| ✅ erl_data_shift_db | 95% |
-| ✅ erl_data_shift_env | 94% |
-| ✅ erl_data_shift_migrations | 84% |
-| ❌ erl_data_shift_app | 27% |
-<!-- COVERAGE-END -->
+
+
+## 🔓 Security 
 <!-- CHECKSUMS-START -->
 **Release v0.3.4 SHA256 checksums:**
 
@@ -23,7 +21,11 @@ Cross-platform CLI for PostgreSQL migrations. Builds, runs, and verifies databas
 ```
 <!-- CHECKSUMS-END -->
 
---- 
+## Authors
+
+Maintained by:  
+ - [@seyed](https://github.com/seyed). For security issues, please contact: [seyed@swiftter.com]
+ - You? Send a PR! 
 
 ## ⚠️ Disclaimer
 
@@ -38,13 +40,18 @@ This software (the "Tool") is an open-source data migration utility provided **"
 
 By using this Tool, you acknowledge that you have read, understood, and agreed to these terms. If you do not agree, do not use this software.   
 
-## Author
+--- 
 
-Maintained by **[Seyed Hossein Ghotbi]** ([@seyed](https://github.com/seyed)).
-For security issues, please contact: [seyed@swiftter.com]
+<!-- COVERAGE-START -->
+### 🧪 Test Coverage — Overall: 53%
 
-
-
+| Module | Coverage |
+|---|---|
+| ✅ erl_data_shift_db | 95% |
+| ✅ erl_data_shift_env | 94% |
+| ✅ erl_data_shift_migrations | 84% |
+| ❌ erl_data_shift_app | 27% |
+<!-- COVERAGE-END -->
 
 
 
