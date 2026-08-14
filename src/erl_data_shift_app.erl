@@ -88,19 +88,44 @@ con_check() ->
             io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
 
-%% Path detection + graceful error handling first — actual migration
-%% execution (running pending .sql files against Postgres) lands next.
 migrate(Args) ->
     {Dir, _RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
     case erl_data_shift_migrations:list_sql_files(Dir) of
-        {ok, Files} ->
-            io:format("Migrations directory: ~ts~n", [Dir]),
-            io:format("Found ~B .sql file(s).~n", [length(Files)]);
         {error, {directory_not_found, Dir}} ->
             io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [Dir]),
             io:format("Create it, or point to another one with: eds migrate -f <path>~n");
         {error, Reason} ->
-            io:format("\033[31m❌ Could not list migrations: ~p~n\033[0m", [Reason])
+            io:format("\033[31m❌ Could not list migrations: ~p~n\033[0m", [Reason]);
+        {ok, _Files} ->
+            run_migrate(Dir)
+    end.
+
+run_migrate(Dir) ->
+    try
+        case erl_data_shift_env:load() of
+            {error, Reason} ->
+                io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason]);
+            {ok, Env} ->
+                io:format("Migrations directory: ~ts~n", [Dir]),
+                ProgressFun = fun(Idx, Total, File) ->
+                    Pct = case Total of 0 -> 100; _ -> (Idx - 1) * 100 div Total end,
+                    io:format("[~B%] Applying ~ts (~B/~B)...~n", [Pct, File, Idx, Total])
+                end,
+                case erl_data_shift_migrator:run(Env, Dir, ProgressFun) of
+                    {ok, 0} ->
+                        io:format("\033[32m✅ No pending migrations — already up to date.~n\033[0m");
+                    {ok, Count} ->
+                        io:format("\033[32m✅ Applied ~B migration(s) successfully.~n\033[0m", [Count]);
+                    {error, {migration_failed, File, Reason}} ->
+                        io:format("\033[31m❌ Migration failed: ~ts~nReason: ~p~n\033[0m", [File, Reason]),
+                        io:format("\033[33mStopped — earlier migrations in this run were committed, this one was rolled back.~n\033[0m");
+                    {error, Reason} ->
+                        io:format("\033[31m❌ Migration run failed: ~p~n\033[0m", [Reason])
+                end
+        end
+    catch
+        Class:Err ->
+            io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
 
 stat() ->
@@ -235,11 +260,7 @@ find_version_index(Cols) ->
         [] -> not_found
     end.
 
-extract_leading_digits(Str) when is_list(Str) ->
-    case re:run(Str, "^([0-9]+)", [{capture, first, list}]) of
-        {match, [Digits]} -> Digits;
-        nomatch -> Str
-    end.
+extract_leading_digits(Str) -> erl_data_shift_migrations:extract_version(Str).
 
 print_drift_lines(_Label, []) -> ok;
 print_drift_lines(Label, Items) ->

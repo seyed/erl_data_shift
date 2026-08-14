@@ -17,7 +17,7 @@
         crypto,             %% [REQUIRED] Cryptographic functions. Needed by public_key and ssl.
         public_key,         %% [REQUIRED] Public key infrastructure (PKI). Needed by ssl for certificates.
         ssl,                %% [REQUIRED] Secure Socket Layer. REQUIRED by epgsql for encrypted DB connections.
-	sasl                %% [Good to have] Hot upgrades. 
+	    sasl                %% [Good to have] Hot upgrades. 
     ]},
     
     {modules, []},          %% Auto-filled by rebar3 during compilation.
