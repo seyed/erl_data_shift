@@ -78,3 +78,20 @@ extract_leading_digits_from_plain_version_test() ->
 
 extract_leading_digits_no_digits_returns_original_test() ->
     ?assertEqual("readme", erl_data_shift_app:extract_leading_digits("readme")).
+
+%% -- column_widths/2 --
+
+%% Regression test: width must account for cell content, not just headers —
+%% previously a long cell (e.g. "2026-07-10 00:54:17 (35 day(s) ago)")
+%% overflowed the printed border because width was header-length-only.
+column_widths_uses_widest_cell_not_just_header_test() ->
+    Headers = ["id", "applied_at"],
+    RowCells = [["1", "2026-07-10 00:54:17 (35 day(s) ago)"], ["2", "short"]],
+    Widths = erl_data_shift_app:column_widths(Headers, RowCells),
+    ?assertEqual([1, length("2026-07-10 00:54:17 (35 day(s) ago)")], Widths).
+
+column_widths_falls_back_to_header_when_wider_test() ->
+    Headers = ["version_number"],
+    RowCells = [["1"], ["2"]],
+    Widths = erl_data_shift_app:column_widths(Headers, RowCells),
+    ?assertEqual([length("version_number")], Widths).
