@@ -2,6 +2,14 @@
 
 Cross-platform CLI for PostgreSQL migrations. Builds, runs, and verifies database schemas via a simple commands. Zero dependencies for the end-user. 
 
+--- 
+
+<!-- COVERAGE-START -->
+**Test coverage:** 53%
+<!-- COVERAGE-END -->
+<!-- CHECKSUMS-START --> <!-- CHECKSUMS-END -->
+
+--- 
 
 ## ⚠️ Disclaimer
 
@@ -21,11 +29,6 @@ By using this Tool, you acknowledge that you have read, understood, and agreed t
 Maintained by **[Seyed Hossein Ghotbi]** ([@seyed](https://github.com/seyed)).
 For security issues, please contact: [seyed@swiftter.com]
 
-
-<!-- COVERAGE-START -->
-**Test coverage:** 53%
-<!-- COVERAGE-END -->
-<!-- CHECKSUMS-START --> <!-- CHECKSUMS-END -->
 
 
 
