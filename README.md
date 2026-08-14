@@ -5,7 +5,14 @@ Cross-platform CLI for PostgreSQL migrations. Builds, runs, and verifies databas
 --- 
 
 <!-- COVERAGE-START -->
-**Test coverage:** 53%
+### 🧪 Test Coverage — Overall: 53%
+
+| Module | Coverage |
+|---|---|
+| ✅ erl_data_shift_db | 95% |
+| ✅ erl_data_shift_env | 94% |
+| ✅ erl_data_shift_migrations | 84% |
+| ❌ erl_data_shift_app | 27% |
 <!-- COVERAGE-END -->
 <!-- CHECKSUMS-START -->
 **Release v0.3.4 SHA256 checksums:**
