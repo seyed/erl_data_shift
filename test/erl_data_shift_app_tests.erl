@@ -53,3 +53,28 @@ dispatch_migrate_with_missing_path_does_not_crash_test() ->
 %% con_check/stat); here we only assert it dispatches without crashing.
 dispatch_history_does_not_crash_test() ->
     ?assertEqual(ok, erl_data_shift_app:dispatch(["history"])).
+
+%% -- format_duration/1 --
+
+format_duration_just_now_test() ->
+    ?assertEqual("just now", erl_data_shift_app:format_duration(30)).
+
+format_duration_minutes_test() ->
+    ?assertEqual("5 min ago", lists:flatten(erl_data_shift_app:format_duration(300))).
+
+format_duration_hours_test() ->
+    ?assertEqual("2 hr ago", lists:flatten(erl_data_shift_app:format_duration(7200))).
+
+format_duration_days_test() ->
+    ?assertEqual("3 day(s) ago", lists:flatten(erl_data_shift_app:format_duration(259200))).
+
+%% -- extract_leading_digits/1 --
+
+extract_leading_digits_from_filename_test() ->
+    ?assertEqual("0001", erl_data_shift_app:extract_leading_digits("0001_init.sql")).
+
+extract_leading_digits_from_plain_version_test() ->
+    ?assertEqual("001", erl_data_shift_app:extract_leading_digits("001")).
+
+extract_leading_digits_no_digits_returns_original_test() ->
+    ?assertEqual("readme", erl_data_shift_app:extract_leading_digits("readme")).
