@@ -7,7 +7,14 @@ Cross-platform CLI for PostgreSQL migrations. Builds, runs, and verifies databas
 <!-- COVERAGE-START -->
 **Test coverage:** 53%
 <!-- COVERAGE-END -->
-<!-- CHECKSUMS-START --> <!-- CHECKSUMS-END -->
+<!-- CHECKSUMS-START -->
+**Release v0.3.4 SHA256 checksums:**
+
+```
+89b53c9f591e020565a80f94f390c361c5a0a94a8b127853c33f41f84904bd23  eds-linux-x86_64
+7104c950b1b283f4a40b6905640bc907c7c46fb7dadeb077ad46c4a736878648  eds-macos-arm64
+```
+<!-- CHECKSUMS-END -->
 
 --- 
 
