@@ -1,5 +1,4 @@
 name: CI
-
 on:
   push:
     branches: [main]
@@ -7,7 +6,7 @@ on:
   pull_request:
     branches: [main]
 
-# Required so softprops/action-gh-release can attach assets to the release
+# Required so we can push README updates and attach release assets
 permissions:
   contents: write
 
@@ -23,8 +22,37 @@ jobs:
           otp-version: "27.1.2"
           rebar3-version: "3.27.0"
 
-      - name: Run tests
-        run: rebar3 eunit
+      - name: Run tests with coverage
+        run: rebar3 eunit --cover
+
+      - name: Generate coverage report
+        run: rebar3 cover --verbose | tee cover_output.txt
+
+      # Only updates README on actual pushes to main (not PRs, not tags) —
+      # avoids fighting over a shared coverage number across branches.
+      - name: Update README coverage section
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          COVERAGE=$(grep -oE '[0-9]+%' cover_output.txt | tail -1)
+          echo "Detected coverage: ${COVERAGE:-unknown}"
+          python3 - "$COVERAGE" <<'PYEOF'
+          import re, sys
+          coverage = sys.argv[1] or "unknown"
+          with open("README.md") as f:
+              content = f.read()
+          new_block = f"<!-- COVERAGE-START -->\n**Test coverage:** {coverage}\n<!-- COVERAGE-END -->"
+          content = re.sub(
+              r"<!-- COVERAGE-START -->.*?<!-- COVERAGE-END -->",
+              new_block, content, flags=re.DOTALL
+          )
+          with open("README.md", "w") as f:
+              f.write(content)
+          PYEOF
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git diff --cached --quiet || git commit -m "docs: update coverage badge [skip ci]"
+          git push
 
   # Runs only on version tags (e.g. v0.1.0): builds prod release per OS and
   # attaches the tarball to a GitHub Release.
@@ -78,8 +106,64 @@ jobs:
           chmod +x "$OUT_FILE"
           rm -f "$TARBALL"
 
+      - name: Compute checksum
+        run: |
+          mkdir -p checksums
+          shasum -a 256 "_build/prod/bin/${{ matrix.artifact_name }}" | awk '{print $1}' > "checksums/${{ matrix.artifact_name }}.sha256"
+
+      - name: Upload checksum artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksum-${{ matrix.artifact_name }}
+          path: checksums/${{ matrix.artifact_name }}.sha256
+
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: _build/prod/bin/${{ matrix.artifact_name }}
           overwrite: true
+
+  # Runs once after both release legs finish: aggregates checksums from
+  # both OS builds and updates the README's CHECKSUMS section in one commit.
+  update-readme-checksums:
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: checksum-*
+          path: checksums
+          merge-multiple: true
+
+      - name: Update README checksums section
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          BLOCK="<!-- CHECKSUMS-START -->\n**Release ${TAG} SHA256 checksums:**\n\n\`\`\`\n"
+          for f in checksums/*.sha256; do
+            NAME=$(basename "$f" .sha256)
+            SUM=$(cat "$f")
+            BLOCK="${BLOCK}${SUM}  ${NAME}\n"
+          done
+          BLOCK="${BLOCK}\`\`\`\n<!-- CHECKSUMS-END -->"
+          python3 - "$BLOCK" <<'PYEOF'
+          import re, sys
+          block = sys.argv[1]
+          with open("README.md") as f:
+              content = f.read()
+          content = re.sub(
+              r"<!-- CHECKSUMS-START -->.*?<!-- CHECKSUMS-END -->",
+              block, content, flags=re.DOTALL
+          )
+          with open("README.md", "w") as f:
+              f.write(content)
+          PYEOF
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git diff --cached --quiet || git commit -m "docs: update checksums for ${TAG} [skip ci]"
+          git push origin HEAD:main
