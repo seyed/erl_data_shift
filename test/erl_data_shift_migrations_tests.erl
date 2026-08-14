@@ -35,3 +35,27 @@ list_sql_files_happy_path_test() ->
 list_sql_files_missing_dir_returns_error_test() ->
     Result = erl_data_shift_migrations:list_sql_files("/tmp/eds_definitely_does_not_exist"),
     ?assertMatch({error, {directory_not_found, _}}, Result).
+
+%% -- extract_version/1 --
+
+extract_version_from_filename_test() ->
+    ?assertEqual("0001", erl_data_shift_migrations:extract_version("0001_init.sql")).
+
+extract_version_from_plain_string_test() ->
+    ?assertEqual("001", erl_data_shift_migrations:extract_version("001")).
+
+extract_version_no_digits_returns_original_test() ->
+    ?assertEqual("readme", erl_data_shift_migrations:extract_version("readme")).
+
+%% -- read_file/1 --
+
+read_file_happy_path_test() ->
+    Path = "/tmp/eds_migration_read_test.sql",
+    ok = file:write_file(Path, <<"CREATE TABLE t(id int);">>),
+    Result = erl_data_shift_migrations:read_file(Path),
+    ?assertEqual({ok, "CREATE TABLE t(id int);"}, Result),
+    file:delete(Path).
+
+read_file_missing_file_test() ->
+    Result = erl_data_shift_migrations:read_file("/tmp/eds_definitely_missing.sql"),
+    ?assertMatch({error, enoent}, Result).
