@@ -88,7 +88,7 @@ column_widths_uses_widest_cell_not_just_header_test() ->
     Headers = ["id", "applied_at"],
     RowCells = [["1", "2026-07-10 00:54:17 (35 day(s) ago)"], ["2", "short"]],
     Widths = erl_data_shift_app:column_widths(Headers, RowCells),
-    ?assertEqual([1, length("2026-07-10 00:54:17 (35 day(s) ago)")], Widths).
+    ?assertEqual([2, length("2026-07-10 00:54:17 (35 day(s) ago)")], Widths).
 
 column_widths_falls_back_to_header_when_wider_test() ->
     Headers = ["version_number"],
