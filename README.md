@@ -4,14 +4,24 @@
 <b>Aim</b>. Cross-platform CLI for PostgreSQL migrations. 
 
 <b>Goal #1</b>: 
-Builds, runs, and verifies database schemas via a simple commands. 
+Builds, runs, and verifies database schemas via simple commands. 
 
 <b>Goal #2</b>: 
 Zero dependencies for the end-user. 
 
+## How to use it 
+Go to release and download the binary based on your OS and make it executable (`chmod +x eds`); and then use the following commands: 
+
+1. **Connection Check**:  `eds con_check`
+
+2. **DB Stats**:          `eds stats` 
+
+3. **Migration History**: `eds history` **Note** It highlights inconsistencies between the target DB and your `migrations/` folder. 
+
+4. **Migrate**: `eds migrate` **Note**: have the `migrations/` folder or point to the folder (`-f /path-to-folder`).   
 
 
-## 🔓 Security 
+## Security 
 <!-- CHECKSUMS-START -->
 ### 🔒 Release v0.3.5 SHA256 Checksums
 
