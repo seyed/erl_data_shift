@@ -49,6 +49,16 @@ dispatch_stat_does_not_crash_test() ->
 dispatch_migrate_with_missing_path_does_not_crash_test() ->
     ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "-f", "/tmp/eds_no_such_dir"])).
 
+%% migrate now actually runs migrations via erl_data_shift_migrator; with an
+%% existing-but-empty dir and no real DB reachable, it should still dispatch
+%% cleanly (env/db failures are handled gracefully, not crashes).
+dispatch_migrate_with_empty_dir_does_not_crash_test() ->
+    Dir = "/tmp/eds_app_migrate_empty_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    Result = erl_data_shift_app:dispatch(["migrate", "-f", Dir]),
+    ?assertEqual(ok, Result),
+    file:del_dir_r(Dir).
+
 %% history hits erl_data_shift_env/db under the hood (same pattern as
 %% con_check/stat); here we only assert it dispatches without crashing.
 dispatch_history_does_not_crash_test() ->
