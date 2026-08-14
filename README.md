@@ -22,7 +22,9 @@ Maintained by **[Seyed Hossein Ghotbi]** ([@seyed](https://github.com/seyed)).
 For security issues, please contact: [seyed@swiftter.com]
 
 
-<!-- COVERAGE-START -->  <!-- COVERAGE-END -->
+<!-- COVERAGE-START -->
+**Test coverage:** 53%
+<!-- COVERAGE-END -->
 <!-- CHECKSUMS-START --> <!-- CHECKSUMS-END -->
 
 
