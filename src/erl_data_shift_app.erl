@@ -1,6 +1,6 @@
 -module(erl_data_shift_app).
 -behaviour(application).
--export([start/2, stop/1, dispatch/1]).
+-export([start/2, stop/1, dispatch/1, format_duration/1, extract_leading_digits/1]).
 
 %% Registry mapping subcommand name -> handler fun/0. Add new commands here.
 -define(COMMANDS, #{
@@ -141,7 +141,9 @@ history() ->
         case erl_data_shift_env:load() of
             {ok, Env} ->
                 case erl_data_shift_db:get_migration_history(Env) of
-                    {ok, {Table, Cols, Rows}} -> print_history(Table, Cols, Rows);
+                    {ok, {Table, Cols, Rows}} ->
+                        print_history(Table, Cols, Rows),
+                        print_drift_check(Cols, Rows);
                     {error, no_migration_table_found} ->
                         io:format("\033[33m⚠️  No known migrations table found "
                                   "(looked for schema_migrations, flyway_schema_history, "
@@ -163,7 +165,7 @@ print_history(Table, Cols, Rows) ->
     io:format("\033[36m~n=== ~ts (~B applied) ===~n\033[0m", [Table, length(Rows)]),
     Widths = [max(length(binary_to_list(C)), 12) || C <- Cols],
     print_row([binary_to_list(C) || C <- Cols], Widths),
-    io:format("~s~n", [lists:duplicate(lists:sum(Widths) + length(Widths), $-)]),
+    io:format("~s~n", [lists:duplicate(lists:sum(Widths) + length(Widths) - 1, $-)]),
     lists:foreach(fun(Row) ->
         Cells = [format_cell(V) || V <- tuple_to_list(Row)],
         print_row(Cells, Widths)
@@ -176,7 +178,64 @@ print_row(Cells, Widths) ->
 format_cell(null) -> "NULL";
 format_cell(V) when is_binary(V) -> binary_to_list(V);
 format_cell(V) when is_integer(V) -> integer_to_list(V);
+format_cell({{_, _, _}, {_, _, _}} = DateTime) ->
+    format_datetime(DateTime) ++ " (" ++ time_ago(DateTime) ++ ")";
 format_cell(V) -> io_lib:format("~p", [V]).
+
+format_datetime({{Y, Mo, D}, {H, Mi, S}}) ->
+    io_lib:format("~4..0B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B",
+                   [Y, Mo, D, H, Mi, trunc(S)]).
+
+%% Roughly formats how long ago a {{Y,M,D},{H,Mi,S}} timestamp was, tolerating
+%% a fractional-seconds float (as returned for timestamptz by epgsql).
+time_ago({{Y, Mo, D}, {H, Mi, S}}) ->
+    IntS = trunc(S),
+    Then = calendar:datetime_to_gregorian_seconds({{Y, Mo, D}, {H, Mi, IntS}}),
+    Now = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
+    DiffSec = max(0, Now - Then),
+    format_duration(DiffSec).
+
+format_duration(Sec) when Sec < 60 -> "just now";
+format_duration(Sec) when Sec < 3600 -> io_lib:format("~B min ago", [Sec div 60]);
+format_duration(Sec) when Sec < 86400 -> io_lib:format("~B hr ago", [Sec div 3600]);
+format_duration(Sec) -> io_lib:format("~B day(s) ago", [Sec div 86400]).
+
+%% Cross-references the DB's recorded migration versions against local
+%% .sql files (using resolve_dir/1's default) to flag drift: files applied
+%% in the DB but missing locally, or present locally but never applied.
+print_drift_check(Cols, Rows) ->
+    case find_version_index(Cols) of
+        not_found -> ok;
+        Idx ->
+            DbVersions = sets:from_list([extract_leading_digits(format_cell(element(Idx, R))) || R <- Rows]),
+            {Dir, _} = erl_data_shift_migrations:resolve_dir([]),
+            case erl_data_shift_migrations:list_sql_files(Dir) of
+                {ok, Files} ->
+                    LocalVersions = sets:from_list([extract_leading_digits(F) || F <- Files]),
+                    MissingLocally = sets:to_list(sets:subtract(DbVersions, LocalVersions)),
+                    NotYetApplied = sets:to_list(sets:subtract(LocalVersions, DbVersions)),
+                    print_drift_lines("Applied in DB but missing locally", MissingLocally),
+                    print_drift_lines("Present locally but not yet applied", NotYetApplied);
+                {error, _Reason} -> ok
+            end
+    end.
+
+find_version_index(Cols) ->
+    IndexedCols = lists:zip(lists:seq(1, length(Cols)), Cols),
+    case [I || {I, C} <- IndexedCols, string:lowercase(binary_to_list(C)) =:= "version"] of
+        [I | _] -> I;
+        [] -> not_found
+    end.
+
+extract_leading_digits(Str) when is_list(Str) ->
+    case re:run(Str, "^([0-9]+)", [{capture, first, list}]) of
+        {match, [Digits]} -> Digits;
+        nomatch -> Str
+    end.
+
+print_drift_lines(_Label, []) -> ok;
+print_drift_lines(Label, Items) ->
+    io:format("\033[33m~ts: ~ts~n\033[0m", [Label, string:join(Items, ", ")]).
 
 print_env_summary(Env) ->
     io:format("  PG_HOST=~ts~n", [maps:get(<<"PG_HOST">>, Env, <<>>)]),
