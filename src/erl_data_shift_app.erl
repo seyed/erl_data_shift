@@ -1,6 +1,6 @@
 -module(erl_data_shift_app).
 -behaviour(application).
--export([start/2, stop/1, dispatch/1, format_duration/1, extract_leading_digits/1]).
+-export([start/2, stop/1, dispatch/1, format_duration/1, extract_leading_digits/1, column_widths/2]).
 
 %% Registry mapping subcommand name -> handler fun/0. Add new commands here.
 -define(COMMANDS, #{
@@ -163,13 +163,21 @@ print_history(_Table, _Cols, []) ->
     io:format("No migrations recorded yet.~n");
 print_history(Table, Cols, Rows) ->
     io:format("\033[36m~n=== ~ts (~B applied) ===~n\033[0m", [Table, length(Rows)]),
-    Widths = [max(length(binary_to_list(C)), 12) || C <- Cols],
-    print_row([binary_to_list(C) || C <- Cols], Widths),
+    HeaderStrs = [binary_to_list(C) || C <- Cols],
+    RowCells = [[format_cell(V) || V <- tuple_to_list(Row)] || Row <- Rows],
+    Widths = column_widths(HeaderStrs, RowCells),
+    print_row(HeaderStrs, Widths),
     io:format("~s~n", [lists:duplicate(lists:sum(Widths) + length(Widths) - 1, $-)]),
-    lists:foreach(fun(Row) ->
-        Cells = [format_cell(V) || V <- tuple_to_list(Row)],
-        print_row(Cells, Widths)
-    end, Rows).
+    lists:foreach(fun(Cells) -> print_row(Cells, Widths) end, RowCells).
+
+%% Width per column = max(header length, longest cell in that column), so
+%% wide content (e.g. "2026-07-10 00:54:17 (35 day(s) ago)") never overflows
+%% the printed border.
+column_widths(Headers, RowCells) ->
+    lists:map(fun({Idx, Header}) ->
+        ColValues = [lists:nth(Idx, Row) || Row <- RowCells],
+        lists:max([length(lists:flatten(Header)) | [length(lists:flatten(V)) || V <- ColValues]])
+    end, lists:zip(lists:seq(1, length(Headers)), Headers)).
 
 print_row(Cells, Widths) ->
     Padded = lists:zipwith(fun(Cell, W) -> string:pad(Cell, W) end, Cells, Widths),
@@ -212,8 +220,8 @@ print_drift_check(Cols, Rows) ->
             case erl_data_shift_migrations:list_sql_files(Dir) of
                 {ok, Files} ->
                     LocalVersions = sets:from_list([extract_leading_digits(F) || F <- Files]),
-                    MissingLocally = sets:to_list(sets:subtract(DbVersions, LocalVersions)),
-                    NotYetApplied = sets:to_list(sets:subtract(LocalVersions, DbVersions)),
+                    MissingLocally = lists:sort(sets:to_list(sets:subtract(DbVersions, LocalVersions))),
+                    NotYetApplied = lists:sort(sets:to_list(sets:subtract(LocalVersions, DbVersions))),
                     print_drift_lines("Applied in DB but missing locally", MissingLocally),
                     print_drift_lines("Present locally but not yet applied", NotYetApplied);
                 {error, _Reason} -> ok
