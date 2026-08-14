@@ -13,11 +13,11 @@ Zero dependencies for the end-user.
 
 ## 🔓 Security 
 <!-- CHECKSUMS-START -->
-**Release v0.3.4 SHA256 checksums:**
+### 🔒 Release v0.3.5 SHA256 Checksums
 
 ```
-89b53c9f591e020565a80f94f390c361c5a0a94a8b127853c33f41f84904bd23  eds-linux-x86_64
-7104c950b1b283f4a40b6905640bc907c7c46fb7dadeb077ad46c4a736878648  eds-macos-arm64
+b309d8f92b4eefe560ebf99204b3e05c86d911157c71521dbdcf987db2d2e4ea  eds-linux-x86_64
+291d96f586abc741a254c6008b0e922f7d2731edb91e09677a8dc865821d98ef  eds-macos-arm64
 ```
 <!-- CHECKSUMS-END -->
 
