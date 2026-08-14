@@ -33,14 +33,43 @@ jobs:
       - name: Update README coverage section
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          COVERAGE=$(grep -oE '[0-9]+%' cover_output.txt | tail -1)
-          echo "Detected coverage: ${COVERAGE:-unknown}"
-          python3 - "$COVERAGE" <<'PYEOF'
-          import re, sys
-          coverage = sys.argv[1] or "unknown"
+          python3 - <<'PYEOF'
+          import re
+
+          with open("cover_output.txt") as f:
+              lines = f.readlines()
+
+          # rebar3 cover --verbose prints "<module>  : NN%" lines per module,
+          # plus a final total. Best-effort parse — adjust regex if rebar3's
+          # output format changes.
+          rows = []
+          total = None
+          for line in lines:
+              m = re.search(r"([\w_]+)\s*[:|]\s*(\d+)%", line)
+              if not m:
+                  continue
+              name, pct = m.group(1), int(m.group(2))
+              if name.lower() == "total":
+                  total = pct
+              else:
+                  rows.append((name, pct))
+
+          def icon(pct):
+              if pct >= 80: return "✅"
+              if pct >= 50: return "⚠️"
+              return "❌"
+
+          lines_out = ["<!-- COVERAGE-START -->"]
+          lines_out.append(f"### 🧪 Test Coverage — Overall: {total if total is not None else '?'}%\n")
+          lines_out.append("| Module | Coverage |")
+          lines_out.append("|---|---|")
+          for name, pct in sorted(rows, key=lambda r: -r[1]):
+              lines_out.append(f"| {icon(pct)} {name} | {pct}% |")
+          lines_out.append("<!-- COVERAGE-END -->")
+          new_block = "\n".join(lines_out)
+
           with open("README.md") as f:
               content = f.read()
-          new_block = f"<!-- COVERAGE-START -->\n**Test coverage:** {coverage}\n<!-- COVERAGE-END -->"
           content = re.sub(
               r"<!-- COVERAGE-START -->.*?<!-- COVERAGE-END -->",
               new_block, content, flags=re.DOTALL
@@ -143,7 +172,7 @@ jobs:
       - name: Update README checksums section
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          BLOCK="<!-- CHECKSUMS-START -->\n**Release ${TAG} SHA256 checksums:**\n\n\`\`\`\n"
+          BLOCK="<!-- CHECKSUMS-START -->\n### 🔒 Release ${TAG} SHA256 Checksums\n\n\`\`\`\n"
           for f in checksums/*.sha256; do
             NAME=$(basename "$f" .sha256)
             SUM=$(cat "$f")
