@@ -54,7 +54,7 @@ By using this Tool, you acknowledge that you have read, understood, and agreed t
 --- 
 
 <!-- COVERAGE-START -->
-### 🧪 Test Coverage — Overall: 58%
+### 🧪 Test Coverage — Overall: 82%
 
 | Module | Coverage |
 |---|---|
@@ -62,7 +62,7 @@ By using this Tool, you acknowledge that you have read, understood, and agreed t
 | ✅ erl_data_shift_db | 92% |
 | ✅ erl_data_shift_migrations | 89% |
 | ✅ erl_data_shift_migrator | 89% |
-| ❌ erl_data_shift_app | 27% |
+| ⚠️ erl_data_shift_app | 73% |
 <!-- COVERAGE-END -->
 
 
