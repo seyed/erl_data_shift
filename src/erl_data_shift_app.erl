@@ -1,6 +1,7 @@
 -module(erl_data_shift_app).
 -behaviour(application).
--export([start/2, stop/1, dispatch/1, format_duration/1, extract_leading_digits/1, column_widths/2]).
+-export([start/2, stop/1, dispatch/1, format_duration/1, extract_leading_digits/1,
+         column_widths/2, human_size/1, time_ago/1, format_datetime/1, format_cell/1]).
 
 %% Registry mapping subcommand name -> handler fun/0. Add new commands here.
 -define(COMMANDS, #{
