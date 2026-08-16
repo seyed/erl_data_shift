@@ -6,9 +6,11 @@ on:
   pull_request:
     branches: [main]
 
-# Required so we can push README updates and attach release assets
+# Required so we can push README updates, attach release assets, and deploy Pages
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   # Runs on every push/PR: compile + eunit tests
@@ -28,14 +30,23 @@ jobs:
       - name: Generate coverage report
         run: rebar3 cover --verbose | tee cover_output.txt
 
+      - name: Upload coverage report for Pages
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _build/test/cover
+
       # Only updates README on actual pushes to main (not PRs, not tags) —
       # avoids fighting over a shared coverage number across branches.
       - name: Update README coverage section
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
         run: |
           python3 - <<'PYEOF'
-          import re
+          import re, os
 
+          pages_url = os.environ["PAGES_URL"]
           with open("cover_output.txt") as f:
               lines = f.readlines()
 
@@ -61,6 +72,7 @@ jobs:
 
           lines_out = ["<!-- COVERAGE-START -->"]
           lines_out.append(f"### 🧪 Test Coverage — Overall: {total if total is not None else '?'}%\n")
+          lines_out.append("[📊 View interactive line-by-line coverage report](" + pages_url + ")\n")
           lines_out.append("| Module | Coverage |")
           lines_out.append("|---|---|")
           for name, pct in sorted(rows, key=lambda r: -r[1]):
@@ -82,6 +94,18 @@ jobs:
           git add README.md
           git diff --cached --quiet || git commit -m "docs: update coverage badge [skip ci]"
           git push
+
+  # Deploys the coverage HTML report uploaded above to GitHub Pages.
+  deploy-pages:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
 
   # Runs only on version tags (e.g. v0.1.0): builds prod release per OS and
   # attaches the tarball to a GitHub Release.
@@ -172,7 +196,7 @@ jobs:
       - name: Update README checksums section
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          BLOCK="<!-- CHECKSUMS-START -->\n### 🔒 Release ${TAG} SHA256 Checksums\n\n\`\`\`\n"
+          BLOCK="<!-- CHECKSUMS-START -->\n### Release ${TAG} SHA256 Checksums\n\n\`\`\`\n"
           for f in checksums/*.sha256; do
             NAME=$(basename "$f" .sha256)
             SUM=$(cat "$f")
