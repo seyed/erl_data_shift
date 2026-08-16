@@ -60,6 +60,8 @@ Go to release and download the binary based on your OS and make it executable (`
 <!-- COVERAGE-START -->
 ### 🧪 Test Coverage — Overall: 82%
 
+[📊 View interactive line-by-line coverage report](https://seyed.github.io/erl_data_shift/)
+
 | Module | Coverage |
 |---|---|
 | ✅ erl_data_shift_env | 94% |
