@@ -1,30 +1,26 @@
 # erl_data_shift (アールデータシフト)
 
+## Table of Contents 
 
-## 🎯 <b>Aim and Goals</b>
-<b>Aim</b>. Cross-platform CLI for PostgreSQL migrations. 
-
-<b>Goal #1</b>: 
-Builds, runs, and verifies database schemas via simple commands. 
-
-<b>Goal #2</b>: 
-Zero dependencies for the end-user. 
-
-## How to use it 
-Go to release and download the binary based on your OS and make it executable (`chmod +x eds`); and then use the following commands: 
-
-1. **Connection Check**:  `eds con_check`
-
-2. **DB Stats**:          `eds stats` 
-
-3. **Migration History**: `eds history` **Note** It highlights inconsistencies between the target DB and your `migrations/` folder. 
-
-4. **Migrate**: `eds migrate` **Note**: have the `migrations/` folder or point to the folder (`-f /path-to-folder`).   
+- [Aim & Goals](#-aim-and-goals)
+- [Security](#security)
+- [Disclaimer](#️-disclaimer)
+- [Usage Examples](#usage-examples)
+- [Code Coverage](#testing)
+- [Authors](#authors)
 
 
-## Security 
+## 🎯 **Aim and Goals**
+**Aim**. Cross-platform CLI for PostgreSQL migrations. 
+
+**Goals** 
+1. Builds, runs, and verifies database schemas via simple commands. 
+2. Zero dependencies for the end-user. 
+
+## 🔓 Security 
+
 <!-- CHECKSUMS-START -->
-### 🔒 Release v0.3.5 SHA256 Checksums
+### Release v0.3.5 SHA256 Checksums
 
 ```
 b309d8f92b4eefe560ebf99204b3e05c86d911157c71521dbdcf987db2d2e4ea  eds-linux-x86_64
@@ -32,11 +28,6 @@ b309d8f92b4eefe560ebf99204b3e05c86d911157c71521dbdcf987db2d2e4ea  eds-linux-x86_
 ```
 <!-- CHECKSUMS-END -->
 
-## Authors
-
-Maintained by:  
- - [@seyed](https://github.com/seyed). For security issues, please contact: [seyed@swiftter.com]
- - You? Send a PR! 
 
 ## ⚠️ Disclaimer
 
@@ -51,7 +42,20 @@ This software (the "Tool") is an open-source data migration utility provided **"
 
 By using this Tool, you acknowledge that you have read, understood, and agreed to these terms. If you do not agree, do not use this software.   
 
---- 
+
+## 🖥️ Usage Examples
+Go to release and download the binary based on your OS and make it executable (`chmod +x eds`); and then use the following commands: 
+
+1. **Connection Check**:  `eds con_check`
+
+2. **DB Stats**:          `eds stats` 
+
+3. **Migration History**: `eds history` **Note** It highlights inconsistencies between the target DB and your `migrations/` folder. 
+
+4. **Migrate**: `eds migrate` **Note**: have the `migrations/` folder or point to the folder (`-f /path-to-folder`).   
+
+
+## 🔬Testing 
 
 <!-- COVERAGE-START -->
 ### 🧪 Test Coverage — Overall: 82%
@@ -64,6 +68,15 @@ By using this Tool, you acknowledge that you have read, understood, and agreed t
 | ✅ erl_data_shift_migrator | 89% |
 | ⚠️ erl_data_shift_app | 73% |
 <!-- COVERAGE-END -->
+
+
+
+## Authors
+
+Maintained by:  
+ - [@seyed](https://github.com/seyed). For security issues, please contact: [seyed@swiftter.com]
+ - You? Send a PR. 
+
 
 
 
