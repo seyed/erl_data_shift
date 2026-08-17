@@ -27,7 +27,7 @@ fd4d3c622f674bb4e3a184163efef9dc2cbe4a2958068663bd8f463f6a680bb0  eds-linux-x86_
 423eb6afe097c229a1a9348404b7a361e7f9149431081e91730e02dd90b828e0  eds-macos-arm64
 ```
 <!-- CHECKSUMS-END -->
-
+ For security issues, please contact: [seyed@swiftter.com] 
 
 ## ⚠️ Disclaimer
 
@@ -43,17 +43,24 @@ This software (the "Tool") is an open-source data migration utility provided **"
 By using this Tool, you acknowledge that you have read, understood, and agreed to these terms. If you do not agree, do not use this software.   
 
 
-## 🖥️ Usage Examples
+## 🖥️ Usage 
+
 Go to release and download the binary based on your OS and make it executable (`chmod +x eds`); and then use the following commands: 
 
-1. **Connection Check**:  `eds con_check`
+```
+Usage: eds <command>
 
-2. **DB Stats**:          `eds stats` 
-
-3. **Migration History**: `eds history` **Note** It highlights inconsistencies between the target DB and your `migrations/` folder. 
-
-4. **Migrate**: `eds migrate` **Note**: have the `migrations/` folder or point to the folder (`-f /path-to-folder`).   
-
+Commands:
+  con_check                Tests Postgres connectivity using your .env credentials.
+  stat                     Shows table names, row counts, and storage size, largest first.
+  history                  Shows applied migrations, with time-since-applied and local/DB drift check.
+  migrate                  Runs all pending .sql files from ./migrations transactionally.
+  migrate down             Rolls back the most recently applied migration.
+  migrate -f <path>        Same as migrate, but points to a custom migrations directory.
+  init                     Scaffolds migrations/ and .env.example in the current directory.
+  --version                Prints the eds version.
+  --help / -h              Shows this help message.
+```
 
 ## 🔬Testing 
 
@@ -71,15 +78,3 @@ Go to release and download the binary based on your OS and make it executable (`
 | ✅ erl_data_shift_init | 80% |
 | ⚠️ erl_data_shift_app | 68% |
 <!-- COVERAGE-END -->
-
-
-
-## Authors
-
-Maintained by:  
- - [@seyed](https://github.com/seyed). For security issues, please contact: [seyed@swiftter.com]
- - You? Send a PR. 
-
-
-
-
