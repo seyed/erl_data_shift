@@ -348,10 +348,12 @@ dispatch_init_does_not_crash_test() ->
     file:del_dir_r(Dir).
 
 dispatch_help_does_not_crash_test() ->
-    ?assertEqual(ok, erl_data_shift_app:dispatch(["--help"])).
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["help"])).
 
-dispatch_h_shorthand_does_not_crash_test() ->
-    ?assertEqual(ok, erl_data_shift_app:dispatch(["-h"])).
-
+%% Note: --version/--help/-h -> version/help translation happens in the bash
+%% wrapper script (build_mac.sh/build_linux.sh/ci.yml), since the Erlang VM
+%% swallows leading-dash args as its own flags before init:get_plain_arguments/0
+%% ever sees them. Not testable at this layer — dispatch/1 only ever receives
+%% the already-translated dash-free command names.
 dispatch_version_does_not_crash_test() ->
-    ?assertEqual(ok, erl_data_shift_app:dispatch(["--version"])).
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["version"])).
