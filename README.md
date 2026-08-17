@@ -58,17 +58,17 @@ Go to release and download the binary based on your OS and make it executable (`
 ## 🔬Testing 
 
 <!-- COVERAGE-START -->
-### 🧪 Test Coverage — Overall: 82%
+### 🧪 Test Coverage — Overall: 81%
 
 [📊 View interactive line-by-line coverage report](https://seyed.github.io/erl_data_shift/)
 
 | Module | Coverage |
 |---|---|
+| ✅ erl_data_shift_migrations | 96% |
 | ✅ erl_data_shift_env | 94% |
-| ✅ erl_data_shift_db | 92% |
-| ✅ erl_data_shift_migrations | 89% |
+| ✅ erl_data_shift_db | 93% |
 | ✅ erl_data_shift_migrator | 89% |
-| ⚠️ erl_data_shift_app | 73% |
+| ⚠️ erl_data_shift_app | 68% |
 <!-- COVERAGE-END -->
 
 
