@@ -113,7 +113,12 @@ if [ ! -x "\${CACHE_DIR}/bin/erl_data_shift" ]; then
     tail -n +"\${ARCHIVE_LINE}" "\$0" | tar -xz -C "\${CACHE_DIR}" --strip-components=1
 fi
 export EDS_ORIGINAL_CWD="\$(pwd)"
-exec "\${CACHE_DIR}/bin/erl_data_shift" foreground "\$@"
+ARGS=("\$@")
+case "\${ARGS[0]:-}" in
+    --version|-v) ARGS[0]="version" ;;
+    --help|-h) ARGS[0]="help" ;;
+esac
+exec "\${CACHE_DIR}/bin/erl_data_shift" foreground "\${ARGS[@]}"
 exit 0
 __ARCHIVE_BELOW__
 STUB

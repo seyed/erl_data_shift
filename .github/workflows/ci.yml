@@ -151,7 +151,12 @@ jobs:
               tail -n +"\${ARCHIVE_LINE}" "\$0" | tar -xz -C "\${CACHE_DIR}" --strip-components=1
           fi
           export EDS_ORIGINAL_CWD="\$(pwd)"
-          exec "\${CACHE_DIR}/bin/erl_data_shift" foreground "\$@"
+          ARGS=("\$@")
+          case "\${ARGS[0]:-}" in
+              --version|-v) ARGS[0]="version" ;;
+              --help|-h) ARGS[0]="help" ;;
+          esac
+          exec "\${CACHE_DIR}/bin/erl_data_shift" foreground "\${ARGS[@]}"
           exit 0
           __ARCHIVE_BELOW__
           STUB
@@ -196,7 +201,7 @@ jobs:
       - name: Update README checksums section
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          BLOCK="<!-- CHECKSUMS-START -->\n### Release ${TAG} SHA256 Checksums\n\n\`\`\`\n"
+          BLOCK="<!-- CHECKSUMS-START -->\n### 🔒 Release ${TAG} SHA256 Checksums\n\n\`\`\`\n"
           for f in checksums/*.sha256; do
             NAME=$(basename "$f" .sha256)
             SUM=$(cat "$f")
