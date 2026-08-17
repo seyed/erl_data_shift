@@ -4,11 +4,27 @@
          column_widths/2, human_size/1, time_ago/1, format_datetime/1, format_cell/1]).
 
 %% Registry mapping subcommand name -> handler fun/0. Add new commands here.
+-define(HELP_ENTRIES, [
+    {"con_check", "Tests Postgres connectivity using your .env credentials."},
+    {"stat", "Shows table names, row counts, and storage size, largest first."},
+    {"history", "Shows applied migrations, with time-since-applied and local/DB drift check."},
+    {"migrate", "Runs all pending .sql files from ./migrations transactionally."},
+    {"migrate down", "Rolls back the most recently applied migration."},
+    {"migrate -f <path>", "Same as migrate, but points to a custom migrations directory."},
+    {"init", "Scaffolds migrations/ and .env.example in the current directory."},
+    {"--version", "Prints the eds version."},
+    {"--help / -h", "Shows this help message."}
+]).
+
 -define(COMMANDS, #{
     "con_check" => fun(_Args) -> con_check() end,
     "migrate"   => fun migrate/1,
     "stat"      => fun(_Args) -> stat() end,
-    "history"   => fun(_Args) -> history() end
+    "history"   => fun(_Args) -> history() end,
+    "init"      => fun(_Args) -> init_cmd() end,
+    "--version" => fun(_Args) -> print_version() end,
+    "--help"    => fun(_Args) -> print_help() end,
+    "-h"        => fun(_Args) -> print_help() end
 }).
 
 start(_StartType, _StartArgs) ->
@@ -47,7 +63,37 @@ print_usage(Message) ->
     io:format("\033[31m~ts~n\033[0m", [Message]),
     io:format("Usage: eds <command>~n"),
     io:format("Commands:~n"),
-    lists:foreach(fun(Name) -> io:format("  ~ts~n", [Name]) end, maps:keys(?COMMANDS)).
+    lists:foreach(fun({Cmd, _Desc}) -> io:format("  ~ts~n", [Cmd]) end, ?HELP_ENTRIES).
+
+print_help() ->
+    io:format("Usage: eds <command>~n~nCommands:~n"),
+    lists:foreach(fun({Cmd, Desc}) -> io:format("  ~-24ts ~ts~n", [Cmd, Desc]) end, ?HELP_ENTRIES).
+
+print_version() ->
+    Vsn = case application:get_key(erl_data_shift, vsn) of
+        {ok, V} -> V;
+        undefined -> "unknown"
+    end,
+    io:format("eds ~ts~n", [Vsn]).
+
+init_cmd() ->
+    try
+        BaseDir = erl_data_shift_env:get_original_cwd(),
+        case erl_data_shift_init:run(BaseDir) of
+            {ok, #{created := Created, skipped := Skipped}} ->
+                lists:foreach(fun(Name) -> io:format("\033[32m✅ Created ~ts~n\033[0m", [Name]) end, Created),
+                lists:foreach(fun(Name) -> io:format("\033[33m⏭️  Skipped ~ts (already exists)~n\033[0m", [Name]) end, Skipped),
+                case Created of
+                    [] -> io:format("Already initialized — nothing to do.~n");
+                    _ -> io:format("Edit .env.example, fill in real values, save as .env.~n")
+                end;
+            {error, Reason} ->
+                io:format("\033[31m❌ Init failed: ~p~n\033[0m", [Reason])
+        end
+    catch
+        Class:Err ->
+            io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
+    end.
 
 print_caution() ->
     Lines = [
