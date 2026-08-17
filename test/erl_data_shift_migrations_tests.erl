@@ -59,3 +59,36 @@ read_file_happy_path_test() ->
 read_file_missing_file_test() ->
     Result = erl_data_shift_migrations:read_file("/tmp/eds_definitely_missing.sql"),
     ?assertMatch({error, enoent}, Result).
+
+%% -- down_file_for/1 --
+
+down_file_for_derives_correct_name_test() ->
+    ?assertEqual("0001_init.down.sql", erl_data_shift_migrations:down_file_for("0001_init.sql")).
+
+%% -- has_down_file/2 --
+
+has_down_file_true_test() ->
+    Dir = "/tmp/eds_down_file_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    ok = file:write_file(filename:join(Dir, "0001_init.down.sql"), <<"DROP TABLE a;">>),
+    ?assert(erl_data_shift_migrations:has_down_file(Dir, "0001_init.sql")),
+    file:del_dir_r(Dir).
+
+has_down_file_false_test() ->
+    Dir = "/tmp/eds_down_file_missing_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    ?assertNot(erl_data_shift_migrations:has_down_file(Dir, "0001_init.sql")),
+    file:del_dir_r(Dir).
+
+%% -- list_sql_files/1 excludes down files (regression test) --
+
+list_sql_files_excludes_down_files_test() ->
+    Dir = "/tmp/eds_migrations_down_exclusion_test",
+    ok = filelib:ensure_dir(Dir ++ "/"),
+    ok = file:write_file(filename:join(Dir, "0001_init.sql"), <<"-- sql">>),
+    ok = file:write_file(filename:join(Dir, "0001_init.down.sql"), <<"-- sql">>),
+
+    {ok, Files} = erl_data_shift_migrations:list_sql_files(Dir),
+
+    ?assertEqual(["0001_init.sql"], Files),
+    file:del_dir_r(Dir).
