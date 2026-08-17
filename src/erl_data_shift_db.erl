@@ -1,7 +1,7 @@
 -module(erl_data_shift_db).
 -export([check_connection/1, get_table_stats/1, get_migration_history/1,
          with_connection/2, ensure_migrations_table/1, get_applied_versions/1,
-         apply_migration/3]).
+         apply_migration/3, get_last_applied_version/1, revert_migration/3]).
 
 -define(REQUIRED_KEYS, [<<"PG_HOST">>, <<"PG_PORT">>, <<"PG_USER">>, <<"PG_PASSWORD">>, <<"PG_DATABASE">>]).
 
@@ -86,6 +86,37 @@ classify(Results) when is_list(Results) ->
     end;
 classify({error, Reason}) -> {error, Reason};
 classify(_Other) -> ok.
+
+%% Returns the most recently applied migration's version (highest id), or
+%% {ok, none} if no migrations have been applied yet.
+-spec get_last_applied_version(epgsql:connection()) -> {ok, string() | none} | {error, term()}.
+get_last_applied_version(Conn) ->
+    Sql = "SELECT version FROM schema_migrations ORDER BY id DESC LIMIT 1",
+    case epgsql:equery(Conn, Sql, []) of
+        {ok, _Cols, [{Version}]} -> {ok, binary_to_list(Version)};
+        {ok, _Cols, []} -> {ok, none};
+        {error, Reason} -> {error, Reason}
+    end.
+
+%% Runs DownSql and removes Version's row from schema_migrations, both inside
+%% a single transaction — mirrors apply_migration/3's commit/rollback shape.
+-spec revert_migration(epgsql:connection(), string(), string()) -> ok | {error, term()}.
+revert_migration(Conn, Version, DownSql) ->
+    {ok, [], []} = epgsql:squery(Conn, "BEGIN"),
+    case classify(epgsql:squery(Conn, DownSql)) of
+        ok ->
+            case epgsql:equery(Conn, "DELETE FROM schema_migrations WHERE version = $1", [Version]) of
+                {ok, _} ->
+                    epgsql:squery(Conn, "COMMIT"),
+                    ok;
+                {error, Reason} ->
+                    epgsql:squery(Conn, "ROLLBACK"),
+                    {error, Reason}
+            end;
+        {error, Reason} ->
+            epgsql:squery(Conn, "ROLLBACK"),
+            {error, Reason}
+    end.
 
 with_params(Env, Fun) ->
     Missing = [K || K <- ?REQUIRED_KEYS, erl_data_shift_env:get(K, Env) =:= undefined],
