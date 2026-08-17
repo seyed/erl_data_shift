@@ -1,94 +1,188 @@
--module(erl_data_shift_migrations_tests).
+-module(erl_data_shift_migrator_tests).
 -include_lib("eunit/include/eunit.hrl").
 
-%% -- resolve_dir/1 --
+setup() ->
+    Dir = "/tmp/eds_migrator_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    file:write_file(filename:join(Dir, "0001_init.sql"), <<"CREATE TABLE a(id int);">>),
+    file:write_file(filename:join(Dir, "0002_add_b.sql"), <<"CREATE TABLE b(id int);">>),
+    Dir.
 
-resolve_dir_uses_f_flag_test() ->
-    {Dir, Rest} = erl_data_shift_migrations:resolve_dir(["-f", "/tmp/custom_migrations"]),
-    ?assertEqual("/tmp/custom_migrations", Dir),
-    ?assertEqual([], Rest).
-
-resolve_dir_uses_path_flag_test() ->
-    {Dir, Rest} = erl_data_shift_migrations:resolve_dir(["--path", "/tmp/custom_migrations", "extra"]),
-    ?assertEqual("/tmp/custom_migrations", Dir),
-    ?assertEqual(["extra"], Rest).
-
-resolve_dir_defaults_when_no_flag_test() ->
-    {Dir, Rest} = erl_data_shift_migrations:resolve_dir([]),
-    ?assertEqual(filename:join(erl_data_shift_env:get_original_cwd(), "migrations"), Dir),
-    ?assertEqual([], Rest).
-
-%% -- list_sql_files/1 --
-
-list_sql_files_happy_path_test() ->
-    Dir = "/tmp/eds_migrations_test",
-    ok = filelib:ensure_dir(Dir ++ "/"),
-    ok = file:write_file(filename:join(Dir, "0001_init.sql"), <<"-- sql">>),
-    ok = file:write_file(filename:join(Dir, "0002_add_users.sql"), <<"-- sql">>),
-    ok = file:write_file(filename:join(Dir, "readme.txt"), <<"not sql">>),
-
-    {ok, Files} = erl_data_shift_migrations:list_sql_files(Dir),
-
-    ?assertEqual(["0001_init.sql", "0002_add_users.sql"], Files),
+teardown(Dir) ->
     file:del_dir_r(Dir).
 
-list_sql_files_missing_dir_returns_error_test() ->
-    Result = erl_data_shift_migrations:list_sql_files("/tmp/eds_definitely_does_not_exist"),
+%% Runs all pending migrations, calling ProgressFun once per file, in order,
+%% and applying each via erl_data_shift_db.
+run_applies_all_pending_in_order_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
+    meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
+
+    Self = self(),
+    ProgressFun = fun(Idx, Total, File) -> Self ! {progress, Idx, Total, File} end,
+    Result = erl_data_shift_migrator:run(#{}, Dir, ProgressFun),
+
+    ?assertEqual({ok, 2}, Result),
+    Msg1 = receive {progress, 1, 2, "0001_init.sql"} -> ok after 1000 -> timeout end,
+    ?assertEqual(ok, Msg1),
+    Msg2 = receive {progress, 2, 2, "0002_add_b.sql"} -> ok after 1000 -> timeout end,
+    ?assertEqual(ok, Msg2),
+
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% Already-applied versions are skipped entirely.
+run_skips_already_applied_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0001"]} end),
+    meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
+
+    ?assertEqual({ok, 1}, Result),
+    ?assertEqual(1, meck:num_calls(erl_data_shift_db, apply_migration, '_')),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% Nothing pending -> {ok, 0}, no apply_migration calls at all.
+run_no_pending_migrations_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0001", "0002"]} end),
+    meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
+
+    ?assertEqual({ok, 0}, Result),
+    ?assertEqual(0, meck:num_calls(erl_data_shift_db, apply_migration, '_')),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% A failing migration stops the run and reports which file failed; earlier
+%% ones in the batch were already committed independently (per-file transactions).
+run_stops_on_first_failure_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
+    meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, "0001", _Sql) -> ok;
+                                                        (_Conn, "0002", _Sql) -> {error, syntax_error}
+                                                     end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
+
+    ?assertMatch({error, {migration_failed, "0002_add_b.sql", syntax_error}}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% Missing migrations directory is a graceful error, not a crash.
+run_missing_directory_test() ->
+    Result = erl_data_shift_migrator:run(#{}, "/tmp/eds_no_such_migrations_dir", fun(_, _, _) -> ok end),
     ?assertMatch({error, {directory_not_found, _}}, Result).
 
-%% -- extract_version/1 --
+%% ensure_migrations_table failure short-circuits before touching files.
+run_ensure_table_failure_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> {error, ddl_error} end),
 
-extract_version_from_filename_test() ->
-    ?assertEqual("0001", erl_data_shift_migrations:extract_version("0001_init.sql")).
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
 
-extract_version_from_plain_string_test() ->
-    ?assertEqual("001", erl_data_shift_migrations:extract_version("001")).
+    ?assertEqual({error, ddl_error}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
 
-extract_version_no_digits_returns_original_test() ->
-    ?assertEqual("readme", erl_data_shift_migrations:extract_version("readme")).
+%% -- rollback_last/2 --
 
-%% -- read_file/1 --
-
-read_file_happy_path_test() ->
-    Path = "/tmp/eds_migration_read_test.sql",
-    ok = file:write_file(Path, <<"CREATE TABLE t(id int);">>),
-    Result = erl_data_shift_migrations:read_file(Path),
-    ?assertEqual({ok, "CREATE TABLE t(id int);"}, Result),
-    file:delete(Path).
-
-read_file_missing_file_test() ->
-    Result = erl_data_shift_migrations:read_file("/tmp/eds_definitely_missing.sql"),
-    ?assertMatch({error, enoent}, Result).
-
-%% -- down_file_for/1 --
-
-down_file_for_derives_correct_name_test() ->
-    ?assertEqual("0001_init.down.sql", erl_data_shift_migrations:down_file_for("0001_init.sql")).
-
-%% -- has_down_file/2 --
-
-has_down_file_true_test() ->
-    Dir = "/tmp/eds_down_file_test",
+rollback_setup() ->
+    Dir = "/tmp/eds_migrator_rollback_test",
     filelib:ensure_dir(Dir ++ "/"),
-    ok = file:write_file(filename:join(Dir, "0001_init.down.sql"), <<"DROP TABLE a;">>),
-    ?assert(erl_data_shift_migrations:has_down_file(Dir, "0001_init.sql")),
+    file:write_file(filename:join(Dir, "0001_init.sql"), <<"CREATE TABLE a(id int);">>),
+    file:write_file(filename:join(Dir, "0001_init.down.sql"), <<"DROP TABLE a;">>),
+    Dir.
+
+rollback_teardown(Dir) ->
     file:del_dir_r(Dir).
 
-has_down_file_false_test() ->
-    Dir = "/tmp/eds_down_file_missing_test",
+rollback_last_success_test() ->
+    Dir = rollback_setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, get_last_applied_version, fun(_Conn) -> {ok, "0001"} end),
+    meck:expect(erl_data_shift_db, revert_migration, fun(_Conn, "0001", _Sql) -> ok end),
+
+    Result = erl_data_shift_migrator:rollback_last(#{}, Dir),
+
+    ?assertEqual({ok, "0001"}, Result),
+    meck:unload(erl_data_shift_db),
+    rollback_teardown(Dir).
+
+rollback_last_no_applied_migrations_test() ->
+    Dir = rollback_setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, get_last_applied_version, fun(_Conn) -> {ok, none} end),
+
+    Result = erl_data_shift_migrator:rollback_last(#{}, Dir),
+
+    ?assertEqual({error, no_applied_migrations}, Result),
+    meck:unload(erl_data_shift_db),
+    rollback_teardown(Dir).
+
+rollback_last_missing_down_file_test() ->
+    Dir = "/tmp/eds_migrator_rollback_no_down_test",
     filelib:ensure_dir(Dir ++ "/"),
-    ?assertNot(erl_data_shift_migrations:has_down_file(Dir, "0001_init.sql")),
-    file:del_dir_r(Dir).
+    file:write_file(filename:join(Dir, "0001_init.sql"), <<"CREATE TABLE a(id int);">>),
+    %% no matching .down.sql written
 
-%% -- list_sql_files/1 excludes down files (regression test) --
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, get_last_applied_version, fun(_Conn) -> {ok, "0001"} end),
 
-list_sql_files_excludes_down_files_test() ->
-    Dir = "/tmp/eds_migrations_down_exclusion_test",
-    ok = filelib:ensure_dir(Dir ++ "/"),
-    ok = file:write_file(filename:join(Dir, "0001_init.sql"), <<"-- sql">>),
-    ok = file:write_file(filename:join(Dir, "0001_init.down.sql"), <<"-- sql">>),
+    Result = erl_data_shift_migrator:rollback_last(#{}, Dir),
 
-    {ok, Files} = erl_data_shift_migrations:list_sql_files(Dir),
+    ?assertMatch({error, {down_file_missing, "0001_init.down.sql"}}, Result),
+    meck:unload(erl_data_shift_db),
+    rollback_teardown(Dir).
 
-    ?assertEqual(["0001_init.sql"], Files),
-    file:del_dir_r(Dir).
+rollback_last_up_file_missing_locally_test() ->
+    Dir = "/tmp/eds_migrator_rollback_no_up_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    %% DB says version 0099 was applied, but no local file matches it
+
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, get_last_applied_version, fun(_Conn) -> {ok, "0099"} end),
+
+    Result = erl_data_shift_migrator:rollback_last(#{}, Dir),
+
+    ?assertMatch({error, {up_file_missing, "0099"}}, Result),
+    meck:unload(erl_data_shift_db),
+    rollback_teardown(Dir).
+
+rollback_last_revert_failure_test() ->
+    Dir = rollback_setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, get_last_applied_version, fun(_Conn) -> {ok, "0001"} end),
+    meck:expect(erl_data_shift_db, revert_migration, fun(_Conn, "0001", _Sql) -> {error, fk_violation} end),
+
+    Result = erl_data_shift_migrator:rollback_last(#{}, Dir),
+
+    ?assertMatch({error, {rollback_failed, "0001_init.sql", fk_violation}}, Result),
+    meck:unload(erl_data_shift_db),
+    rollback_teardown(Dir).
+
+rollback_last_missing_directory_test() ->
+    Result = erl_data_shift_migrator:rollback_last(#{}, "/tmp/eds_no_such_rollback_dir"),
+    ?assertMatch({error, {directory_not_found, _}}, Result).
