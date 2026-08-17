@@ -68,6 +68,7 @@ Go to release and download the binary based on your OS and make it executable (`
 | ✅ erl_data_shift_env | 94% |
 | ✅ erl_data_shift_db | 93% |
 | ✅ erl_data_shift_migrator | 89% |
+| ✅ erl_data_shift_init | 80% |
 | ⚠️ erl_data_shift_app | 68% |
 <!-- COVERAGE-END -->
 
