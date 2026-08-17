@@ -22,9 +22,8 @@
     "stat"      => fun(_Args) -> stat() end,
     "history"   => fun(_Args) -> history() end,
     "init"      => fun(_Args) -> init_cmd() end,
-    "--version" => fun(_Args) -> print_version() end,
-    "--help"    => fun(_Args) -> print_help() end,
-    "-h"        => fun(_Args) -> print_help() end
+    "version"   => fun(_Args) -> print_version() end,
+    "help"      => fun(_Args) -> print_help() end
 }).
 
 start(_StartType, _StartArgs) ->
