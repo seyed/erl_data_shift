@@ -27,6 +27,7 @@ stop(_State) ->
 %% relx passes its own boot verb (foreground/console/start/...) through as
 %% part of the plain arguments — strip any leading one before dispatching.
 -define(BOOT_VERBS, ["foreground", "console", "start", "daemon"]).
+-define(DOWN_ARG, "down").
 
 dispatch([Verb | Rest]) ->
     case lists:member(Verb, ?BOOT_VERBS) of
@@ -90,7 +91,13 @@ con_check() ->
     end.
 
 migrate(Args) ->
-    {Dir, _RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
+    {Dir, RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
+    case lists:member(?DOWN_ARG, RemainingArgs) of
+        true -> migrate_down(Dir);
+        false -> migrate_up(Dir)
+    end.
+
+migrate_up(Dir) ->
     case erl_data_shift_migrations:list_sql_files(Dir) of
         {error, {directory_not_found, Dir}} ->
             io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [Dir]),
@@ -99,6 +106,34 @@ migrate(Args) ->
             io:format("\033[31m❌ Could not list migrations: ~p~n\033[0m", [Reason]);
         {ok, _Files} ->
             run_migrate(Dir)
+    end.
+
+migrate_down(Dir) ->
+    try
+        case erl_data_shift_env:load() of
+            {error, Reason} ->
+                io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason]);
+            {ok, Env} ->
+                case erl_data_shift_migrator:rollback_last(Env, Dir) of
+                    {ok, Version} ->
+                        io:format("\033[32m✅ Rolled back migration ~ts.~n\033[0m", [Version]);
+                    {error, no_applied_migrations} ->
+                        io:format("\033[33m⚠️  No applied migrations to roll back.~n\033[0m");
+                    {error, {down_file_missing, DownFile}} ->
+                        io:format("\033[31m❌ Cannot roll back: ~ts not found.~n\033[0m", [DownFile]);
+                    {error, {up_file_missing, Version}} ->
+                        io:format("\033[31m❌ Cannot roll back: no local migration file found for version ~ts.~n\033[0m", [Version]);
+                    {error, {directory_not_found, Dir}} ->
+                        io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [Dir]);
+                    {error, {rollback_failed, File, Reason}} ->
+                        io:format("\033[31m❌ Rollback failed for ~ts: ~p~n\033[0m", [File, Reason]);
+                    {error, Reason} ->
+                        io:format("\033[31m❌ Rollback failed: ~p~n\033[0m", [Reason])
+                end
+        end
+    catch
+        Class:Err ->
+            io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
 
 run_migrate(Dir) ->
