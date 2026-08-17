@@ -282,3 +282,52 @@ migrate_failure_path_test() ->
     meck:unload(erl_data_shift_migrator),
     meck:unload(erl_data_shift_env),
     file:del_dir_r(Dir).
+
+%% -- migrate down, via mocked migrator --
+
+migrate_down_success_path_test() ->
+    Dir = "/tmp/eds_app_migrate_down_success_test",
+    filelib:ensure_dir(Dir ++ "/"),
+
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, rollback_last, fun(_Env, _Dir) -> {ok, "0001"} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "down", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+migrate_down_no_applied_migrations_test() ->
+    Dir = "/tmp/eds_app_migrate_down_none_test",
+    filelib:ensure_dir(Dir ++ "/"),
+
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, rollback_last, fun(_Env, _Dir) -> {error, no_applied_migrations} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "down", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+migrate_down_missing_down_file_test() ->
+    Dir = "/tmp/eds_app_migrate_down_missing_file_test",
+    filelib:ensure_dir(Dir ++ "/"),
+
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, rollback_last, fun(_Env, _Dir) ->
+        {error, {down_file_missing, "0001_init.down.sql"}}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "down", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
