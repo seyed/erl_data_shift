@@ -20,11 +20,11 @@
 ## 🔓 Security 
 
 <!-- CHECKSUMS-START -->
-### Release v0.6.5 SHA256 Checksums
+### 🔒 Release v0.6.6 SHA256 Checksums
 
 ```
-fd4d3c622f674bb4e3a184163efef9dc2cbe4a2958068663bd8f463f6a680bb0  eds-linux-x86_64
-423eb6afe097c229a1a9348404b7a361e7f9149431081e91730e02dd90b828e0  eds-macos-arm64
+85de809d784f060e64b1d9e8cd0862100651bd5332c7a25a6068aceb8e7ce7a6  eds-linux-x86_64
+ff6194838fd92add9e00b3bf40ef29cb739ca0f00f3157ed5d2bb7fedf855d0a  eds-macos-arm64
 ```
 <!-- CHECKSUMS-END -->
 
