@@ -331,3 +331,27 @@ migrate_down_missing_down_file_test() ->
     meck:unload(erl_data_shift_migrator),
     meck:unload(erl_data_shift_env),
     file:del_dir_r(Dir).
+
+%% -- init/--help/-h/--version dispatch --
+
+%% init_cmd/0 writes real files based on get_original_cwd() — mock it to a
+%% temp dir so this test never touches the actual repo working directory.
+dispatch_init_does_not_crash_test() ->
+    Dir = "/tmp/eds_app_dispatch_init_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, get_original_cwd, fun() -> Dir end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["init"])),
+
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+dispatch_help_does_not_crash_test() ->
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["--help"])).
+
+dispatch_h_shorthand_does_not_crash_test() ->
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["-h"])).
+
+dispatch_version_does_not_crash_test() ->
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["--version"])).
