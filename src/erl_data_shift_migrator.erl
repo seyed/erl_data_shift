@@ -1,5 +1,5 @@
 -module(erl_data_shift_migrator).
--export([run/3, rollback_last/2]).
+-export([run/3, rollback_last/2, dry_run/2]).
 
 -define(NO_APPLIED_MIGRATIONS, no_applied_migrations).
 -define(DOWN_FILE_MISSING, down_file_missing).
@@ -7,7 +7,9 @@
 
 %% Runs all pending migrations in Dir against Env's DB. ProgressFun(Idx,
 %% Total, Filename) is called before each file (decoupled from printing so
-%% it's easily testable). Returns {ok, AppliedCount} or {error, Reason}.
+%% it's easily testable). Acquires a DB advisory lock first so two concurrent
+%% eds instances can't apply migrations at the same time. Returns
+%% {ok, AppliedCount} or {error, Reason}.
 -spec run(map(), file:filename(), fun((integer(), integer(), string()) -> any())) ->
     {ok, integer()} | {error, term()}.
 run(Env, Dir, ProgressFun) ->
@@ -16,8 +18,34 @@ run(Env, Dir, ProgressFun) ->
             {error, Reason};
         {ok, Files} ->
             erl_data_shift_db:with_connection(Env, fun(Conn) ->
-                run_with_conn(Conn, Dir, Files, ProgressFun)
+                with_lock(Conn, fun() -> run_with_conn(Conn, Dir, Files, ProgressFun) end)
             end)
+    end.
+
+%% Lists pending migrations without applying any of them — no lock needed
+%% since nothing is written. Returns {ok, [Filename]}.
+-spec dry_run(map(), file:filename()) -> {ok, [string()]} | {error, term()}.
+dry_run(Env, Dir) ->
+    case erl_data_shift_migrations:list_sql_files(Dir) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, Files} ->
+            erl_data_shift_db:with_connection(Env, fun(Conn) ->
+                pending_files(Conn, Files)
+            end)
+    end.
+
+pending_files(Conn, Files) ->
+    case erl_data_shift_db:ensure_migrations_table(Conn) of
+        {error, Reason} -> {error, Reason};
+        ok ->
+            case erl_data_shift_db:get_applied_versions(Conn) of
+                {error, Reason} -> {error, Reason};
+                {ok, Applied} ->
+                    Pending = [F || F <- Files,
+                               not lists:member(erl_data_shift_migrations:extract_version(F), Applied)],
+                    {ok, Pending}
+            end
     end.
 
 %% Rolls back the most recently applied migration: finds its up-file in Dir
@@ -30,8 +58,23 @@ rollback_last(Env, Dir) ->
             {error, Reason};
         {ok, Files} ->
             erl_data_shift_db:with_connection(Env, fun(Conn) ->
-                rollback_with_conn(Conn, Dir, Files)
+                with_lock(Conn, fun() -> rollback_with_conn(Conn, Dir, Files) end)
             end)
+    end.
+
+%% Acquires the DB advisory lock, runs Fun/0, releases the lock afterward
+%% regardless of success or failure (best-effort release, never masks Fun's
+%% own result/error).
+with_lock(Conn, Fun) ->
+    case erl_data_shift_db:acquire_migration_lock(Conn) of
+        {error, Reason} ->
+            {error, Reason};
+        ok ->
+            try
+                Fun()
+            after
+                erl_data_shift_db:release_migration_lock(Conn)
+            end
     end.
 
 rollback_with_conn(Conn, Dir, Files) ->
