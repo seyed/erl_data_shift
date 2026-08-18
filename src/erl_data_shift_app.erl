@@ -9,8 +9,10 @@
     {"stat", "Shows table names, row counts, and storage size, largest first."},
     {"history", "Shows applied migrations, with time-since-applied and local/DB drift check."},
     {"migrate", "Runs all pending .sql files from ./migrations transactionally."},
+    {"migrate dry-run", "Lists pending migrations without applying them."},
     {"migrate down", "Rolls back the most recently applied migration."},
     {"migrate -f <path>", "Same as migrate, but points to a custom migrations directory."},
+    {"new <name>", "Scaffolds a new numbered up+down migration file pair."},
     {"init", "Scaffolds migrations/ and .env.example in the current directory."},
     {"--version", "Prints the eds version."},
     {"--help / -h", "Shows this help message."}
@@ -22,6 +24,7 @@
     "stat"      => fun(_Args) -> stat() end,
     "history"   => fun(_Args) -> history() end,
     "init"      => fun(_Args) -> init_cmd() end,
+    "new"       => fun new_cmd/1,
     "version"   => fun(_Args) -> print_version() end,
     "help"      => fun(_Args) -> print_help() end
 }).
@@ -43,6 +46,7 @@ stop(_State) ->
 %% part of the plain arguments — strip any leading one before dispatching.
 -define(BOOT_VERBS, ["foreground", "console", "start", "daemon"]).
 -define(DOWN_ARG, "down").
+-define(DRY_RUN_ARG, "dry-run").
 
 dispatch([Verb | Rest]) ->
     case lists:member(Verb, ?BOOT_VERBS) of
