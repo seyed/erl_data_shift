@@ -1,9 +1,15 @@
 -module(erl_data_shift_db).
 -export([check_connection/1, get_table_stats/1, get_migration_history/1,
          with_connection/2, ensure_migrations_table/1, get_applied_versions/1,
-         apply_migration/3, get_last_applied_version/1, revert_migration/3]).
+         apply_migration/3, get_last_applied_version/1, revert_migration/3,
+         acquire_migration_lock/1, release_migration_lock/1]).
 
 -define(REQUIRED_KEYS, [<<"PG_HOST">>, <<"PG_PORT">>, <<"PG_USER">>, <<"PG_PASSWORD">>, <<"PG_DATABASE">>]).
+
+%% Fixed advisory-lock key shared by every eds instance targeting the same
+%% DB, so concurrent `migrate`/`migrate down` runs serialize instead of
+%% racing each other. Arbitrary but stable — never change this value.
+-define(MIGRATION_LOCK_KEY, 727625172).
 
 %% Attempts a Postgres connection using PG_* keys from the given env map.
 %% Returns {ok, connected} or {error, Reason}.
@@ -118,6 +124,24 @@ revert_migration(Conn, Version, DownSql) ->
             {error, Reason}
     end.
 
+%% Tries to acquire a Postgres advisory lock so only one eds process can run
+%% migrate/migrate-down against this DB at a time. Non-blocking: returns
+%% {error, migration_locked} immediately if another process holds it.
+-spec acquire_migration_lock(epgsql:connection()) -> ok | {error, term()}.
+acquire_migration_lock(Conn) ->
+    case epgsql:equery(Conn, "SELECT pg_try_advisory_lock($1)", [?MIGRATION_LOCK_KEY]) of
+        {ok, _Cols, [{true}]} -> ok;
+        {ok, _Cols, [{false}]} -> {error, migration_locked};
+        {error, Reason} -> {error, Reason}
+    end.
+
+%% Releases the advisory lock. Best-effort — the lock also auto-releases
+%% when the connection closes, so a failed unlock here isn't fatal.
+-spec release_migration_lock(epgsql:connection()) -> ok.
+release_migration_lock(Conn) ->
+    epgsql:equery(Conn, "SELECT pg_advisory_unlock($1)", [?MIGRATION_LOCK_KEY]),
+    ok.
+
 with_params(Env, Fun) ->
     Missing = [K || K <- ?REQUIRED_KEYS, erl_data_shift_env:get(K, Env) =:= undefined],
     case Missing of
@@ -131,11 +155,20 @@ parse_params(Env, Fun) ->
     User = binary_to_list(erl_data_shift_env:get(<<"PG_USER">>, Env)),
     Pass = binary_to_list(erl_data_shift_env:get(<<"PG_PASSWORD">>, Env)),
     Db   = binary_to_list(erl_data_shift_env:get(<<"PG_DATABASE">>, Env)),
+    UseSsl = ssl_enabled(erl_data_shift_env:get(<<"PG_SSLMODE">>, Env)),
     case string:to_integer(PortStr) of
         {Port, ""} -> Fun(#{host => Host, port => Port, username => User,
-                             password => Pass, database => Db, timeout => 5000});
+                             password => Pass, database => Db, timeout => 5000,
+                             ssl => UseSsl});
         _ -> {error, {invalid_port, PortStr}}
     end.
+
+%% PG_SSLMODE is optional — absent or "disable" means plaintext (backward
+%% compatible default). Any other value (e.g. "require", "verify-full")
+%% enables TLS via epgsql's ssl option.
+ssl_enabled(undefined) -> false;
+ssl_enabled(<<"disable">>) -> false;
+ssl_enabled(_Other) -> true.
 
 %% Runs Fun(Conn) against a fresh connection, isolated in a monitored process
 %% so any epgsql crash (e.g. econnrefused) yields a clean {error, _} instead
