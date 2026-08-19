@@ -20,11 +20,11 @@
 ## 🔓 Security 
 
 <!-- CHECKSUMS-START -->
-### 🔒 Release v0.6.6 SHA256 Checksums
+### 🔒 Release v0.7.0 SHA256 Checksums
 
 ```
-85de809d784f060e64b1d9e8cd0862100651bd5332c7a25a6068aceb8e7ce7a6  eds-linux-x86_64
-ff6194838fd92add9e00b3bf40ef29cb739ca0f00f3157ed5d2bb7fedf855d0a  eds-macos-arm64
+f1f348c1e22dba9c22aa6fcf11ec2fa34a6a16b236637bd66644a5e12c85d229  eds-linux-x86_64
+a848da6e37a636fd5925978ac8c0f4b1efd9432ae2e06187e85a46dda2e239f2  eds-macos-arm64
 ```
 <!-- CHECKSUMS-END -->
  For security issues, please contact: [seyed@swiftter.com] 
