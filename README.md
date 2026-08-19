@@ -20,11 +20,11 @@
 ## 🔓 Security 
 
 <!-- CHECKSUMS-START -->
-### 🔒 Release v0.6.6 SHA256 Checksums
+### 🔒 Release v0.7.0 SHA256 Checksums
 
 ```
-85de809d784f060e64b1d9e8cd0862100651bd5332c7a25a6068aceb8e7ce7a6  eds-linux-x86_64
-ff6194838fd92add9e00b3bf40ef29cb739ca0f00f3157ed5d2bb7fedf855d0a  eds-macos-arm64
+711bc7b94cb2e3cb5b16387bb5eab24d31548fe877b8ad8ad294bb5b2715a415  eds-linux-x86_64
+887b5d880461eef6421b7d36c4116ffe95799a1e47f9fbe0dfe2ed2e4437db62  eds-macos-arm64
 ```
 <!-- CHECKSUMS-END -->
  For security issues, please contact: [seyed@swiftter.com] 
@@ -55,8 +55,10 @@ Commands:
   stat                     Shows table names, row counts, and storage size, largest first.
   history                  Shows applied migrations, with time-since-applied and local/DB drift check.
   migrate                  Runs all pending .sql files from ./migrations transactionally.
+  migrate dry-run          Lists pending migrations without applying them.
   migrate down             Rolls back the most recently applied migration.
   migrate -f <path>        Same as migrate, but points to a custom migrations directory.
+  new <name>               Scaffolds a new numbered up+down migration file pair.
   init                     Scaffolds migrations/ and .env.example in the current directory.
   --version                Prints the eds version.
   --help / -h              Shows this help message.
@@ -65,16 +67,17 @@ Commands:
 ## 🔬Testing 
 
 <!-- COVERAGE-START -->
-### 🧪 Test Coverage — Overall: 81%
+### 🧪 Test Coverage — Overall: 80%
 
 [📊 View interactive line-by-line coverage report](https://seyed.github.io/erl_data_shift/)
 
 | Module | Coverage |
 |---|---|
 | ✅ erl_data_shift_migrations | 96% |
+| ✅ erl_data_shift_db | 94% |
 | ✅ erl_data_shift_env | 94% |
-| ✅ erl_data_shift_db | 93% |
 | ✅ erl_data_shift_migrator | 89% |
+| ✅ erl_data_shift_scaffold | 82% |
 | ✅ erl_data_shift_init | 80% |
-| ⚠️ erl_data_shift_app | 68% |
+| ⚠️ erl_data_shift_app | 65% |
 <!-- COVERAGE-END -->
