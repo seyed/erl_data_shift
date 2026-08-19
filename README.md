@@ -65,16 +65,17 @@ Commands:
 ## 🔬Testing 
 
 <!-- COVERAGE-START -->
-### 🧪 Test Coverage — Overall: 81%
+### 🧪 Test Coverage — Overall: 80%
 
 [📊 View interactive line-by-line coverage report](https://seyed.github.io/erl_data_shift/)
 
 | Module | Coverage |
 |---|---|
 | ✅ erl_data_shift_migrations | 96% |
+| ✅ erl_data_shift_db | 94% |
 | ✅ erl_data_shift_env | 94% |
-| ✅ erl_data_shift_db | 93% |
 | ✅ erl_data_shift_migrator | 89% |
+| ✅ erl_data_shift_scaffold | 82% |
 | ✅ erl_data_shift_init | 80% |
-| ⚠️ erl_data_shift_app | 68% |
+| ⚠️ erl_data_shift_app | 65% |
 <!-- COVERAGE-END -->
