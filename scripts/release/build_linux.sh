@@ -45,7 +45,12 @@ case "\${ARGS[0]:-}" in
     --version|-v) ARGS[0]="version" ;;
     --help|-h) ARGS[0]="help" ;;
 esac
-exec "\${CACHE_DIR}/bin/erl_data_shift" foreground "\${ARGS[@]}"
+set +e
+"\${CACHE_DIR}/bin/erl_data_shift" foreground "\${ARGS[@]}" \\
+    | grep -vE '^Exec: ' \\
+    | grep -vE '^Root: ' \\
+    | grep -vFx "\${CACHE_DIR}"
+exit "\${PIPESTATUS[0]}"
 exit 0
 __ARCHIVE_BELOW__
 STUB

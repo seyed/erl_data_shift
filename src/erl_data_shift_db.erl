@@ -42,35 +42,47 @@ get_migration_history(Env) ->
 with_connection(Env, Fun) ->
     with_params(Env, fun(Params) -> run_isolated(Fun, Params) end).
 
-%% Creates the schema_migrations tracking table if it doesn't already exist.
-%% Safe to call every run (idempotent via IF NOT EXISTS).
+%% Creates the schema_migrations tracking table if missing, and adds
+%% applied_by/reverted_at columns via ALTER TABLE IF NOT EXISTS so existing
+%% installs from before this feature get upgraded in place, idempotently.
 -spec ensure_migrations_table(epgsql:connection()) -> ok | {error, term()}.
 ensure_migrations_table(Conn) ->
-    Sql = "CREATE TABLE IF NOT EXISTS schema_migrations ("
-          "id SERIAL PRIMARY KEY, "
-          "version TEXT NOT NULL UNIQUE, "
-          "applied_at TIMESTAMPTZ NOT NULL DEFAULT now())",
+    Statements = [
+        "CREATE TABLE IF NOT EXISTS schema_migrations ("
+        "id SERIAL PRIMARY KEY, "
+        "version TEXT NOT NULL UNIQUE, "
+        "applied_at TIMESTAMPTZ NOT NULL DEFAULT now())",
+        "ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS applied_by TEXT",
+        "ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS reverted_at TIMESTAMPTZ"
+    ],
+    run_statements(Conn, Statements).
+
+run_statements(_Conn, []) -> ok;
+run_statements(Conn, [Sql | Rest]) ->
     case epgsql:squery(Conn, Sql) of
         {error, Reason} -> {error, Reason};
-        _ -> ok
+        _ -> run_statements(Conn, Rest)
     end.
 
-%% Returns the list of already-applied migration versions (as strings).
+%% Returns the list of currently-applied (i.e. not reverted) migration
+%% versions, as strings.
 -spec get_applied_versions(epgsql:connection()) -> {ok, [string()]} | {error, term()}.
 get_applied_versions(Conn) ->
-    case epgsql:equery(Conn, "SELECT version FROM schema_migrations", []) of
+    Sql = "SELECT version FROM schema_migrations WHERE reverted_at IS NULL",
+    case epgsql:equery(Conn, Sql, []) of
         {ok, _Cols, Rows} -> {ok, [binary_to_list(V) || {V} <- Rows]};
         {error, Reason} -> {error, Reason}
     end.
 
-%% Runs Sql and records Version in schema_migrations, both inside a single
-%% transaction — either both succeed or neither does (rollback on failure).
+%% Runs Sql and records Version + the OS user running eds in
+%% schema_migrations, both inside a single transaction.
 -spec apply_migration(epgsql:connection(), string(), string()) -> ok | {error, term()}.
 apply_migration(Conn, Version, Sql) ->
     {ok, [], []} = epgsql:squery(Conn, "BEGIN"),
     case classify(epgsql:squery(Conn, Sql)) of
         ok ->
-            case epgsql:equery(Conn, "INSERT INTO schema_migrations (version) VALUES ($1)", [Version]) of
+            InsertSql = "INSERT INTO schema_migrations (version, applied_by) VALUES ($1, $2)",
+            case epgsql:equery(Conn, InsertSql, [Version, current_user()]) of
                 {ok, _} ->
                     epgsql:squery(Conn, "COMMIT"),
                     ok;
@@ -93,28 +105,47 @@ classify(Results) when is_list(Results) ->
 classify({error, Reason}) -> {error, Reason};
 classify(_Other) -> ok.
 
-%% Returns the most recently applied migration's version (highest id), or
-%% {ok, none} if no migrations have been applied yet.
+%% Best-effort identification of who ran eds — the OS user, not the DB user
+%% (which is usually a shared service account, not useful for an audit trail).
+current_user() ->
+    case os:getenv("USER") of
+        false ->
+            case os:getenv("USERNAME") of
+                false -> "unknown";
+                U -> U
+            end;
+        U -> U
+    end.
+
+%% Returns the most recently applied (not reverted) migration's version, or
+%% {ok, none} if nothing is currently applied.
 -spec get_last_applied_version(epgsql:connection()) -> {ok, string() | none} | {error, term()}.
 get_last_applied_version(Conn) ->
-    Sql = "SELECT version FROM schema_migrations ORDER BY id DESC LIMIT 1",
+    Sql = "SELECT version FROM schema_migrations WHERE reverted_at IS NULL ORDER BY id DESC LIMIT 1",
     case epgsql:equery(Conn, Sql, []) of
         {ok, _Cols, [{Version}]} -> {ok, binary_to_list(Version)};
         {ok, _Cols, []} -> {ok, none};
         {error, Reason} -> {error, Reason}
     end.
 
-%% Runs DownSql and removes Version's row from schema_migrations, both inside
-%% a single transaction — mirrors apply_migration/3's commit/rollback shape.
+%% Runs DownSql and marks Version as reverted (reverted_at = now()) rather
+%% than deleting its row, so the audit trail in `eds history` still shows it
+%% was applied and later reverted. Guards against reverting an
+%% already-reverted or nonexistent version (0 rows affected -> error).
 -spec revert_migration(epgsql:connection(), string(), string()) -> ok | {error, term()}.
 revert_migration(Conn, Version, DownSql) ->
     {ok, [], []} = epgsql:squery(Conn, "BEGIN"),
     case classify(epgsql:squery(Conn, DownSql)) of
         ok ->
-            case epgsql:equery(Conn, "DELETE FROM schema_migrations WHERE version = $1", [Version]) of
-                {ok, _} ->
+            UpdateSql = "UPDATE schema_migrations SET reverted_at = now() "
+                        "WHERE version = $1 AND reverted_at IS NULL",
+            case epgsql:equery(Conn, UpdateSql, [Version]) of
+                {ok, 1} ->
                     epgsql:squery(Conn, "COMMIT"),
                     ok;
+                {ok, 0} ->
+                    epgsql:squery(Conn, "ROLLBACK"),
+                    {error, already_reverted_or_missing};
                 {error, Reason} ->
                     epgsql:squery(Conn, "ROLLBACK"),
                     {error, Reason}
