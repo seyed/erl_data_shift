@@ -149,26 +149,38 @@ with_params(Env, Fun) ->
         _  -> {error, {missing_config, Missing}}
     end.
 
+-define(VALID_SSLMODES, [<<"disable">>, <<"require">>, <<"verify-ca">>, <<"verify-full">>]).
+
 parse_params(Env, Fun) ->
     Host = binary_to_list(erl_data_shift_env:get(<<"PG_HOST">>, Env)),
     PortStr = binary_to_list(erl_data_shift_env:get(<<"PG_PORT">>, Env)),
     User = binary_to_list(erl_data_shift_env:get(<<"PG_USER">>, Env)),
     Pass = binary_to_list(erl_data_shift_env:get(<<"PG_PASSWORD">>, Env)),
     Db   = binary_to_list(erl_data_shift_env:get(<<"PG_DATABASE">>, Env)),
-    UseSsl = ssl_enabled(erl_data_shift_env:get(<<"PG_SSLMODE">>, Env)),
-    case string:to_integer(PortStr) of
-        {Port, ""} -> Fun(#{host => Host, port => Port, username => User,
-                             password => Pass, database => Db, timeout => 5000,
-                             ssl => UseSsl});
-        _ -> {error, {invalid_port, PortStr}}
+    SslMode = case erl_data_shift_env:get(<<"PG_SSLMODE">>, Env) of
+        undefined -> <<"disable">>;
+        V -> V
+    end,
+    case {string:to_integer(PortStr), validate_sslmode(SslMode)} of
+        {{Port, ""}, {ok, UseSsl}} ->
+            Fun(#{host => Host, port => Port, username => User,
+                  password => Pass, database => Db, timeout => 5000,
+                  ssl => UseSsl});
+        {{_, _}, {error, _}} ->
+            {error, {invalid_sslmode, SslMode}};
+        {_, _} ->
+            {error, {invalid_port, PortStr}}
     end.
 
-%% PG_SSLMODE is optional — absent or "disable" means plaintext (backward
-%% compatible default). Any other value (e.g. "require", "verify-full")
-%% enables TLS via epgsql's ssl option.
-ssl_enabled(undefined) -> false;
-ssl_enabled(<<"disable">>) -> false;
-ssl_enabled(_Other) -> true.
+%% PG_SSLMODE must be one of Postgres's own sslmode values. "disable" means
+%% plaintext; anything else in the allow-list enables TLS. Unrecognized
+%% values are rejected outright rather than silently guessing intent.
+validate_sslmode(<<"disable">>) -> {ok, false};
+validate_sslmode(Mode) ->
+    case lists:member(Mode, ?VALID_SSLMODES) of
+        true -> {ok, true};
+        false -> {error, invalid}
+    end.
 
 %% Runs Fun(Conn) against a fresh connection, isolated in a monitored process
 %% so any epgsql crash (e.g. econnrefused) yields a clean {error, _} instead
