@@ -7,8 +7,6 @@
 - [Disclaimer](#️-disclaimer)
 - [Usage Examples](#usage-examples)
 - [Code Coverage](#testing)
-- [Authors](#authors)
-
 
 ## 🎯 **Aim and Goals**
 **Aim**. Cross-platform CLI for PostgreSQL migrations. 
@@ -17,7 +15,7 @@
 1. Builds, runs, and verifies database schemas via simple commands. 
 2. Zero dependencies for the end-user. 
 
-## 🔓 Security 
+## Security 
 
 <!-- CHECKSUMS-START -->
 ### 🔒 Release v0.7.0 SHA256 Checksums
