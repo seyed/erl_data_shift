@@ -23,8 +23,8 @@
 ### 🔒 Release v0.7.0 SHA256 Checksums
 
 ```
-f1f348c1e22dba9c22aa6fcf11ec2fa34a6a16b236637bd66644a5e12c85d229  eds-linux-x86_64
-a848da6e37a636fd5925978ac8c0f4b1efd9432ae2e06187e85a46dda2e239f2  eds-macos-arm64
+711bc7b94cb2e3cb5b16387bb5eab24d31548fe877b8ad8ad294bb5b2715a415  eds-linux-x86_64
+887b5d880461eef6421b7d36c4116ffe95799a1e47f9fbe0dfe2ed2e4437db62  eds-macos-arm64
 ```
 <!-- CHECKSUMS-END -->
  For security issues, please contact: [seyed@swiftter.com] 
