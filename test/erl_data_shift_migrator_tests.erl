@@ -11,12 +11,19 @@ setup() ->
 teardown(Dir) ->
     file:del_dir_r(Dir).
 
+%% Standard lock mocks reused by every test that exercises run/3 or
+%% rollback_last/2, both of which now acquire/release a DB advisory lock.
+expect_lock_ok() ->
+    meck:expect(erl_data_shift_db, acquire_migration_lock, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, release_migration_lock, fun(_Conn) -> ok end).
+
 %% Runs all pending migrations, calling ProgressFun once per file, in order,
 %% and applying each via erl_data_shift_db.
 run_applies_all_pending_in_order_test() ->
     Dir = setup(),
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
@@ -39,6 +46,7 @@ run_skips_already_applied_test() ->
     Dir = setup(),
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0001"]} end),
     meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
@@ -55,6 +63,7 @@ run_no_pending_migrations_test() ->
     Dir = setup(),
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0001", "0002"]} end),
     meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
@@ -72,6 +81,7 @@ run_stops_on_first_failure_test() ->
     Dir = setup(),
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, "0001", _Sql) -> ok;
@@ -94,6 +104,7 @@ run_ensure_table_failure_test() ->
     Dir = setup(),
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> {error, ddl_error} end),
 
     Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
@@ -118,6 +129,7 @@ rollback_last_success_test() ->
     Dir = rollback_setup(),
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
     meck:expect(erl_data_shift_db, get_last_applied_version, fun(_Conn) -> {ok, "0001"} end),
     meck:expect(erl_data_shift_db, revert_migration, fun(_Conn, "0001", _Sql) -> ok end),
 
@@ -131,6 +143,7 @@ rollback_last_no_applied_migrations_test() ->
     Dir = rollback_setup(),
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
     meck:expect(erl_data_shift_db, get_last_applied_version, fun(_Conn) -> {ok, none} end),
 
     Result = erl_data_shift_migrator:rollback_last(#{}, Dir),
@@ -147,6 +160,7 @@ rollback_last_missing_down_file_test() ->
 
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
     meck:expect(erl_data_shift_db, get_last_applied_version, fun(_Conn) -> {ok, "0001"} end),
 
     Result = erl_data_shift_migrator:rollback_last(#{}, Dir),
@@ -162,6 +176,7 @@ rollback_last_up_file_missing_locally_test() ->
 
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
     meck:expect(erl_data_shift_db, get_last_applied_version, fun(_Conn) -> {ok, "0099"} end),
 
     Result = erl_data_shift_migrator:rollback_last(#{}, Dir),
@@ -174,6 +189,7 @@ rollback_last_revert_failure_test() ->
     Dir = rollback_setup(),
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
     meck:expect(erl_data_shift_db, get_last_applied_version, fun(_Conn) -> {ok, "0001"} end),
     meck:expect(erl_data_shift_db, revert_migration, fun(_Conn, "0001", _Sql) -> {error, fk_violation} end),
 
@@ -185,4 +201,91 @@ rollback_last_revert_failure_test() ->
 
 rollback_last_missing_directory_test() ->
     Result = erl_data_shift_migrator:rollback_last(#{}, "/tmp/eds_no_such_rollback_dir"),
+    ?assertMatch({error, {directory_not_found, _}}, Result).
+
+%% -- run/3 acquires and releases the lock (dedicated lock-behavior tests) --
+
+run_acquires_and_releases_lock_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
+    meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
+
+    ?assertEqual({ok, 2}, Result),
+    ?assertEqual(1, meck:num_calls(erl_data_shift_db, acquire_migration_lock, '_')),
+    ?assertEqual(1, meck:num_calls(erl_data_shift_db, release_migration_lock, '_')),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% Lock already held -> clean error, no migrations attempted.
+run_fails_cleanly_when_locked_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, acquire_migration_lock, fun(_Conn) -> {error, migration_locked} end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
+
+    ?assertEqual({error, migration_locked}, Result),
+    ?assertEqual(0, meck:num_calls(erl_data_shift_db, ensure_migrations_table, '_')),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% Lock is released even if a migration fails mid-run.
+run_releases_lock_even_on_failure_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
+    meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> {error, boom} end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
+
+    ?assertMatch({error, {migration_failed, _, boom}}, Result),
+    ?assertEqual(1, meck:num_calls(erl_data_shift_db, release_migration_lock, '_')),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% rollback_last/2 also acquires/releases the lock.
+rollback_last_acquires_and_releases_lock_test() ->
+    Dir = rollback_setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, get_last_applied_version, fun(_Conn) -> {ok, "0001"} end),
+    meck:expect(erl_data_shift_db, revert_migration, fun(_Conn, "0001", _Sql) -> ok end),
+
+    Result = erl_data_shift_migrator:rollback_last(#{}, Dir),
+
+    ?assertEqual({ok, "0001"}, Result),
+    ?assertEqual(1, meck:num_calls(erl_data_shift_db, acquire_migration_lock, '_')),
+    ?assertEqual(1, meck:num_calls(erl_data_shift_db, release_migration_lock, '_')),
+    meck:unload(erl_data_shift_db),
+    rollback_teardown(Dir).
+
+%% -- dry_run/2 (no lock — read-only, doesn't call with_lock) --
+
+dry_run_lists_pending_without_applying_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0001"]} end),
+
+    Result = erl_data_shift_migrator:dry_run(#{}, Dir),
+
+    ?assertEqual({ok, ["0002_add_b.sql"]}, Result),
+    ?assertEqual(0, meck:num_calls(erl_data_shift_db, apply_migration, '_')),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+dry_run_missing_directory_test() ->
+    Result = erl_data_shift_migrator:dry_run(#{}, "/tmp/eds_no_such_dry_run_dir"),
     ?assertMatch({error, {directory_not_found, _}}, Result).

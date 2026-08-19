@@ -310,3 +310,93 @@ revert_migration_delete_failure_rolls_back_test() ->
     ?assertEqual({error, delete_failed}, Result),
     ?assert(meck:called(epgsql, squery, [fake_conn, "ROLLBACK"])),
     meck:unload(epgsql).
+
+%% -- acquire_migration_lock/1 --
+
+acquire_migration_lock_success_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, "SELECT pg_try_advisory_lock($1)", _Params) -> {ok, [col], [{true}]} end),
+    ?assertEqual(ok, erl_data_shift_db:acquire_migration_lock(fake_conn)),
+    meck:unload(epgsql).
+
+acquire_migration_lock_already_held_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, "SELECT pg_try_advisory_lock($1)", _Params) -> {ok, [col], [{false}]} end),
+    ?assertEqual({error, migration_locked}, erl_data_shift_db:acquire_migration_lock(fake_conn)),
+    meck:unload(epgsql).
+
+acquire_migration_lock_query_error_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, "SELECT pg_try_advisory_lock($1)", _Params) -> {error, some_error} end),
+    ?assertEqual({error, some_error}, erl_data_shift_db:acquire_migration_lock(fake_conn)),
+    meck:unload(epgsql).
+
+%% -- release_migration_lock/1 --
+
+release_migration_lock_always_returns_ok_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, "SELECT pg_advisory_unlock($1)", _Params) -> {ok, [col], [{true}]} end),
+    ?assertEqual(ok, erl_data_shift_db:release_migration_lock(fake_conn)),
+    meck:unload(epgsql).
+
+%% -- SSL param handling (via check_connection, asserting the ssl opt passed to epgsql:connect) --
+
+connect_uses_ssl_false_by_default_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(Opts) ->
+        ?assertEqual(false, maps:get(ssl, Opts)),
+        {ok, fake_conn}
+    end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
+    erl_data_shift_db:check_connection(sample_env()),
+    meck:unload(epgsql).
+
+connect_uses_ssl_true_when_sslmode_set_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(Opts) ->
+        ?assertEqual(true, maps:get(ssl, Opts)),
+        {ok, fake_conn}
+    end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
+    EnvWithSsl = maps:put(<<"PG_SSLMODE">>, <<"require">>, sample_env()),
+    erl_data_shift_db:check_connection(EnvWithSsl),
+    meck:unload(epgsql).
+
+connect_uses_ssl_false_when_sslmode_disable_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(Opts) ->
+        ?assertEqual(false, maps:get(ssl, Opts)),
+        {ok, fake_conn}
+    end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
+    EnvWithSsl = maps:put(<<"PG_SSLMODE">>, <<"disable">>, sample_env()),
+    erl_data_shift_db:check_connection(EnvWithSsl),
+    meck:unload(epgsql).
+
+connect_uses_ssl_true_for_verify_ca_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(Opts) ->
+        ?assertEqual(true, maps:get(ssl, Opts)),
+        {ok, fake_conn}
+    end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
+    EnvWithSsl = maps:put(<<"PG_SSLMODE">>, <<"verify-ca">>, sample_env()),
+    erl_data_shift_db:check_connection(EnvWithSsl),
+    meck:unload(epgsql).
+
+connect_uses_ssl_true_for_verify_full_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, connect, fun(Opts) ->
+        ?assertEqual(true, maps:get(ssl, Opts)),
+        {ok, fake_conn}
+    end),
+    meck:expect(epgsql, close, fun(_Conn) -> ok end),
+    EnvWithSsl = maps:put(<<"PG_SSLMODE">>, <<"verify-full">>, sample_env()),
+    erl_data_shift_db:check_connection(EnvWithSsl),
+    meck:unload(epgsql).
+
+%% Unrecognized sslmode is rejected outright, not silently treated as enable.
+connect_rejects_invalid_sslmode_test() ->
+    EnvWithBadSsl = maps:put(<<"PG_SSLMODE">>, <<"yolo">>, sample_env()),
+    Result = erl_data_shift_db:check_connection(EnvWithBadSsl),
+    ?assertEqual({error, {invalid_sslmode, <<"yolo">>}}, Result).

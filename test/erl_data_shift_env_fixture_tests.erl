@@ -1,25 +1,33 @@
 -module(erl_data_shift_env_fixture_tests).
 -include_lib("eunit/include/eunit.hrl").
 
--define(SAMPLE_ENV, "test/samples/.env.example").
-
-%% Happy path: fixture file exists and parses expected keys.
-loads_sample_fixture_test() ->
-    {ok, Env} = erl_data_shift_env:load(?SAMPLE_ENV),
+%% Happy path: a well-formed env file parses expected keys. Writes its own
+%% temp fixture rather than relying on a checked-in sample file (removed —
+%% superseded by root .env.example + `eds init`).
+loads_env_file_test() ->
+    Path = "/tmp/erl_data_shift_fixture_test.env",
+    ok = file:write_file(Path,
+        <<"PG_HOST=localhost\nPG_PORT=5432\nPG_USER=postgres\n"
+          "PG_PASSWORD=postgres\nPG_DATABASE=erl_data_shift\n">>),
+    {ok, Env} = erl_data_shift_env:load(Path),
     ?assertEqual(<<"localhost">>, erl_data_shift_env:get(<<"PG_HOST">>, Env)),
     ?assertEqual(<<"5432">>, erl_data_shift_env:get(<<"PG_PORT">>, Env)),
     ?assertEqual(<<"postgres">>, erl_data_shift_env:get(<<"PG_USER">>, Env)),
     ?assertEqual(<<"postgres">>, erl_data_shift_env:get(<<"PG_PASSWORD">>, Env)),
-    ?assertEqual(<<"erl_data_shift">>, erl_data_shift_env:get(<<"PG_DATABASE">>, Env)).
+    ?assertEqual(<<"erl_data_shift">>, erl_data_shift_env:get(<<"PG_DATABASE">>, Env)),
+    file:delete(Path).
 
-%% Happy path: a key absent from the fixture returns undefined, not a crash.
-missing_key_in_fixture_returns_undefined_test() ->
-    {ok, Env} = erl_data_shift_env:load(?SAMPLE_ENV),
-    ?assertEqual(undefined, erl_data_shift_env:get(<<"PG_SSLMODE">>, Env)).
+%% Happy path: a key genuinely absent from the file returns undefined, not a crash.
+missing_key_returns_undefined_test() ->
+    Path = "/tmp/erl_data_shift_fixture_missing_key_test.env",
+    ok = file:write_file(Path, <<"PG_HOST=localhost\n">>),
+    {ok, Env} = erl_data_shift_env:load(Path),
+    ?assertEqual(undefined, erl_data_shift_env:get(<<"PG_SSLMODE">>, Env)),
+    file:delete(Path).
 
 %% Sad path: pointing at a non-existent file returns {error, enoent}.
 load_nonexistent_file_test() ->
-    ?assertMatch({error, enoent}, erl_data_shift_env:load("test/samples/does_not_exist.env")).
+    ?assertMatch({error, enoent}, erl_data_shift_env:load("/tmp/eds_definitely_does_not_exist.env")).
 
 %% Sad path: an empty/malformed file yields an empty map, not a crash.
 load_malformed_file_test() ->
