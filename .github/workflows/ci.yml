@@ -156,7 +156,12 @@ jobs:
               --version|-v) ARGS[0]="version" ;;
               --help|-h) ARGS[0]="help" ;;
           esac
-          exec "\${CACHE_DIR}/bin/erl_data_shift" foreground "\${ARGS[@]}"
+          set +e
+          "\${CACHE_DIR}/bin/erl_data_shift" foreground "\${ARGS[@]}" \
+              | grep -vE '^Exec: ' \
+              | grep -vE '^Root: ' \
+              | grep -vFx "\${CACHE_DIR}"
+          exit "\${PIPESTATUS[0]}"
           exit 0
           __ARCHIVE_BELOW__
           STUB
@@ -201,7 +206,7 @@ jobs:
       - name: Update README checksums section
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          BLOCK="<!-- CHECKSUMS-START -->\n### 🔒 Release ${TAG} SHA256 Checksums\n\n\`\`\`\n"
+          BLOCK="<!-- CHECKSUMS-START -->\n### Release ${TAG} SHA256 Checksums\n\n\`\`\`\n"
           for f in checksums/*.sha256; do
             NAME=$(basename "$f" .sha256)
             SUM=$(cat "$f")

@@ -154,25 +154,38 @@ get_migration_history_detection_query_error_test() ->
     ?assertEqual({error, some_detection_error}, Result),
     meck:unload(epgsql).
 
-%% -- ensure_migrations_table/1 --
+%% -- ensure_migrations_table/1 (now runs CREATE + 2 ALTER statements) --
 
 ensure_migrations_table_success_test() ->
     meck:new(epgsql, [non_strict]),
     meck:expect(epgsql, squery, fun(_Conn, _Sql) -> {ok, [], []} end),
     ?assertEqual(ok, erl_data_shift_db:ensure_migrations_table(fake_conn)),
+    ?assertEqual(3, meck:num_calls(epgsql, squery, '_')),
     meck:unload(epgsql).
 
-ensure_migrations_table_failure_test() ->
+ensure_migrations_table_failure_on_create_test() ->
     meck:new(epgsql, [non_strict]),
     meck:expect(epgsql, squery, fun(_Conn, _Sql) -> {error, some_ddl_error} end),
     ?assertEqual({error, some_ddl_error}, erl_data_shift_db:ensure_migrations_table(fake_conn)),
     meck:unload(epgsql).
 
-%% -- get_applied_versions/1 --
+%% A failure on a later ALTER statement (e.g. applied_by column) also
+%% short-circuits and surfaces the error.
+ensure_migrations_table_failure_on_alter_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, squery, fun
+        (_Conn, "CREATE TABLE IF NOT EXISTS schema_migrations" ++ _) -> {ok, [], []};
+        (_Conn, _Sql) -> {error, alter_failed}
+    end),
+    ?assertEqual({error, alter_failed}, erl_data_shift_db:ensure_migrations_table(fake_conn)),
+    meck:unload(epgsql).
+
+%% -- get_applied_versions/1 (now filters WHERE reverted_at IS NULL) --
 
 get_applied_versions_success_test() ->
     meck:new(epgsql, [non_strict]),
-    meck:expect(epgsql, equery, fun(_Conn, _Sql, []) ->
+    meck:expect(epgsql, equery, fun(_Conn, Sql, []) ->
+        ?assert(string:find(Sql, "reverted_at IS NULL") =/= nomatch),
         {ok, [col], [{<<"0001">>}, {<<"0002">>}]}
     end),
     ?assertEqual({ok, ["0001", "0002"]}, erl_data_shift_db:get_applied_versions(fake_conn)),
@@ -184,7 +197,7 @@ get_applied_versions_failure_test() ->
     ?assertEqual({error, table_missing}, erl_data_shift_db:get_applied_versions(fake_conn)),
     meck:unload(epgsql).
 
-%% -- apply_migration/3 --
+%% -- apply_migration/3 (INSERT now includes applied_by) --
 
 apply_migration_success_commits_test() ->
     meck:new(epgsql, [non_strict]),
@@ -194,7 +207,7 @@ apply_migration_success_commits_test() ->
         (_Conn, "ROLLBACK") -> {ok, [], []};
         (_Conn, _Sql) -> {ok, [], []} %% the migration's own SQL
     end),
-    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version]) -> {ok, 1} end),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version, _AppliedBy]) -> {ok, 1} end),
 
     Result = erl_data_shift_db:apply_migration(fake_conn, "0001", "CREATE TABLE t(id int);"),
 
@@ -223,7 +236,7 @@ apply_migration_insert_failure_rolls_back_test() ->
         (_Conn, "ROLLBACK") -> {ok, [], []};
         (_Conn, _Sql) -> {ok, [], []}
     end),
-    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version]) -> {error, duplicate_version} end),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version, _AppliedBy]) -> {error, duplicate_version} end),
 
     Result = erl_data_shift_db:apply_migration(fake_conn, "0001", "CREATE TABLE t(id int);"),
 
@@ -264,7 +277,7 @@ get_last_applied_version_query_error_test() ->
     ?assertEqual({error, table_missing}, erl_data_shift_db:get_last_applied_version(fake_conn)),
     meck:unload(epgsql).
 
-%% -- revert_migration/3 --
+%% -- revert_migration/3 (now UPDATE...reverted_at, not DELETE) --
 
 revert_migration_success_commits_test() ->
     meck:new(epgsql, [non_strict]),
@@ -296,18 +309,35 @@ revert_migration_sql_failure_rolls_back_test() ->
     ?assert(meck:called(epgsql, squery, [fake_conn, "ROLLBACK"])),
     meck:unload(epgsql).
 
-revert_migration_delete_failure_rolls_back_test() ->
+revert_migration_update_failure_rolls_back_test() ->
     meck:new(epgsql, [non_strict]),
     meck:expect(epgsql, squery, fun
         (_Conn, "BEGIN") -> {ok, [], []};
         (_Conn, "ROLLBACK") -> {ok, [], []};
         (_Conn, _Sql) -> {ok, [], []}
     end),
-    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version]) -> {error, delete_failed} end),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version]) -> {error, update_failed} end),
 
     Result = erl_data_shift_db:revert_migration(fake_conn, "0003", "DROP TABLE c;"),
 
-    ?assertEqual({error, delete_failed}, Result),
+    ?assertEqual({error, update_failed}, Result),
+    ?assert(meck:called(epgsql, squery, [fake_conn, "ROLLBACK"])),
+    meck:unload(epgsql).
+
+%% 0 rows affected means the version was already reverted or never applied —
+%% must roll back and report a clear error, not silently claim success.
+revert_migration_already_reverted_rolls_back_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, squery, fun
+        (_Conn, "BEGIN") -> {ok, [], []};
+        (_Conn, "ROLLBACK") -> {ok, [], []};
+        (_Conn, _Sql) -> {ok, [], []}
+    end),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version]) -> {ok, 0} end),
+
+    Result = erl_data_shift_db:revert_migration(fake_conn, "0003", "DROP TABLE c;"),
+
+    ?assertEqual({error, already_reverted_or_missing}, Result),
     ?assert(meck:called(epgsql, squery, [fake_conn, "ROLLBACK"])),
     meck:unload(epgsql).
 
