@@ -55,8 +55,10 @@ Commands:
   stat                     Shows table names, row counts, and storage size, largest first.
   history                  Shows applied migrations, with time-since-applied and local/DB drift check.
   migrate                  Runs all pending .sql files from ./migrations transactionally.
+  migrate dry-run          Lists pending migrations without applying them.
   migrate down             Rolls back the most recently applied migration.
   migrate -f <path>        Same as migrate, but points to a custom migrations directory.
+  new <name>               Scaffolds a new numbered up+down migration file pair.
   init                     Scaffolds migrations/ and .env.example in the current directory.
   --version                Prints the eds version.
   --help / -h              Shows this help message.
