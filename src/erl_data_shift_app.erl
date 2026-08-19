@@ -79,6 +79,25 @@ print_version() ->
     end,
     io:format("eds ~ts~n", [Vsn]).
 
+new_cmd([]) ->
+    io:format("\033[31m❌ Usage: eds new <name>~n\033[0m");
+new_cmd([Name | _Rest]) ->
+    try
+        {Dir, _} = erl_data_shift_migrations:resolve_dir([]),
+        case erl_data_shift_scaffold:create_migration(Dir, Name) of
+            {ok, {UpFile, DownFile}} ->
+                io:format("\033[32m✅ Created ~ts~n\033[0m", [filename:join(Dir, UpFile)]),
+                io:format("\033[32m✅ Created ~ts~n\033[0m", [filename:join(Dir, DownFile)]);
+            {error, {already_exists, Path}} ->
+                io:format("\033[31m❌ ~ts already exists.~n\033[0m", [Path]);
+            {error, Reason} ->
+                io:format("\033[31m❌ Could not create migration: ~p~n\033[0m", [Reason])
+        end
+    catch
+        Class:Err ->
+            io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
+    end.
+
 init_cmd() ->
     try
         BaseDir = erl_data_shift_env:get_original_cwd(),
@@ -141,9 +160,33 @@ con_check() ->
 
 migrate(Args) ->
     {Dir, RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
-    case lists:member(?DOWN_ARG, RemainingArgs) of
-        true -> migrate_down(Dir);
-        false -> migrate_up(Dir)
+    case {lists:member(?DOWN_ARG, RemainingArgs), lists:member(?DRY_RUN_ARG, RemainingArgs)} of
+        {true, _} -> migrate_down(Dir);
+        {false, true} -> migrate_dry_run(Dir);
+        {false, false} -> migrate_up(Dir)
+    end.
+
+migrate_dry_run(Dir) ->
+    try
+        case erl_data_shift_env:load() of
+            {error, Reason} ->
+                io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason]);
+            {ok, Env} ->
+                case erl_data_shift_migrator:dry_run(Env, Dir) of
+                    {ok, []} ->
+                        io:format("\033[32m✅ No pending migrations — already up to date.~n\033[0m");
+                    {ok, Files} ->
+                        io:format("Pending migrations (~B):~n", [length(Files)]),
+                        lists:foreach(fun(F) -> io:format("  ~ts~n", [F]) end, Files);
+                    {error, {directory_not_found, Dir}} ->
+                        io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [Dir]);
+                    {error, Reason} ->
+                        io:format("\033[31m❌ Could not list pending migrations: ~p~n\033[0m", [Reason])
+                end
+        end
+    catch
+        Class:Err ->
+            io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
 
 migrate_up(Dir) ->
