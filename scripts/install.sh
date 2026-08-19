@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-REPO="https://github.com/seyed/erl_data_shift" 
+REPO="seyed/erl_data_shift" 
 INSTALL_DIR="${EDS_INSTALL_DIR:-$HOME/.local/bin}"
 
 echo "🔍 Detecting platform..."
