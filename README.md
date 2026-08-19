@@ -74,8 +74,8 @@ Commands:
 | Module | Coverage |
 |---|---|
 | ✅ erl_data_shift_migrations | 96% |
-| ✅ erl_data_shift_db | 94% |
 | ✅ erl_data_shift_env | 94% |
+| ✅ erl_data_shift_db | 92% |
 | ✅ erl_data_shift_migrator | 89% |
 | ✅ erl_data_shift_scaffold | 82% |
 | ✅ erl_data_shift_init | 80% |
