@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-REPO="seyed/erl_data_shift" 
+REPO="seyed/erl_data_shift"
 INSTALL_DIR="${EDS_INSTALL_DIR:-$HOME/.local/bin}"
 
 echo "🔍 Detecting platform..."
@@ -47,6 +47,16 @@ if [ "$OS" = "Darwin" ]; then
 fi
 
 echo "✅ Installed to ${DEST}"
+
+# Best-effort: also install the man page so `man eds` works. Non-fatal if
+# this fails (e.g. no write access to the man dir).
+MAN_DIR="${EDS_MAN_DIR:-$HOME/.local/share/man/man1}"
+MAN_URL="https://raw.githubusercontent.com/${REPO}/main/docs/eds.1"
+if mkdir -p "$MAN_DIR" 2>/dev/null; then
+    if curl -fsSL "$MAN_URL" -o "${MAN_DIR}/eds.1" 2>/dev/null; then
+        echo "📖 Installed man page to ${MAN_DIR}/eds.1 (run: man eds)"
+    fi
+fi
 
 case ":$PATH:" in
     *":${INSTALL_DIR}:"*)

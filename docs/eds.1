@@ -1,0 +1,126 @@
+.TH EDS 1 "2026" "eds" "User Commands"
+.SH NAME
+eds \- erl_data_shift: a standalone Postgres migration CLI
+.SH SYNOPSIS
+.B eds
+.I command
+.RI [ args ]
+.SH DESCRIPTION
+.B eds
+is a single-binary command-line tool for running and managing Postgres
+schema migrations. It reads connection details from a
+.B .env
+file in the current directory and requires no separately installed runtime.
+.SH COMMANDS
+.TP
+.B con_check
+Tests Postgres connectivity using your .env credentials.
+.TP
+.B stat
+Shows table names, row counts, and storage size, largest first.
+.TP
+.B history
+Shows applied migrations: time-since-applied, who applied or reverted
+each one, and drift between local migration files and the database.
+.TP
+.B migrate
+Runs all pending .sql files from ./migrations transactionally, one
+migration per transaction.
+.TP
+.B migrate dry-run
+Lists pending migrations without applying them.
+.TP
+.B migrate down
+Rolls back the most recently applied migration, using its matching
+.I *.down.sql
+file.
+.TP
+.BI "migrate -f " path
+Same as
+.BR migrate ,
+but points to a custom migrations directory instead of ./migrations.
+Also accepts
+.BI "--path " path
+as a longer alias.
+.TP
+.BI "new " name
+Scaffolds a new numbered up+down migration file pair in the migrations
+directory, e.g.
+.IR 0004_add_users.sql " and " 0004_add_users.down.sql .
+.TP
+.B init
+Scaffolds ./migrations and .env.example in the current directory.
+Never overwrites existing files.
+.TP
+.B --version
+Prints the eds version.
+.TP
+.BR --help ", " -h
+Shows a short command summary.
+.SH ENVIRONMENT
+.B eds
+reads the following keys from a
+.B .env
+file in the current directory (see
+.B .env.example
+after running
+.BR "eds init" ):
+.TP
+.B PG_HOST, PG_PORT, PG_USER, PG_PASSWORD, PG_DATABASE
+Required. Standard Postgres connection parameters.
+.TP
+.B PG_SSLMODE
+Optional. One of
+.BR disable ", " require ", " verify-ca ", " verify-full .
+Defaults to
+.B disable
+(plaintext) if omitted.
+.SH CONCURRENCY
+Only one
+.B migrate
+or
+.B "migrate down"
+run can execute against a given database at a time. This is enforced
+with a Postgres advisory lock; a second concurrent run fails cleanly
+with a "migration locked" message rather than racing the first.
+.SH EXIT STATUS
+.B eds
+exits non-zero if the requested command fails (e.g. a migration errors,
+the database is unreachable, or .env is missing/invalid). It exits 0
+on success, including "no pending migrations" style no-ops.
+.SH FILES
+.TP
+.I .env
+Connection credentials for the current project. Never committed to
+version control.
+.TP
+.I .env.example
+Template with placeholder values, safe to commit.
+.TP
+.I migrations/
+Default directory for numbered .sql migration files and their
+.I *.down.sql
+counterparts.
+.SH EXAMPLES
+.TP
+Scaffold a new project:
+.B eds init
+.TP
+Create a new migration:
+.B eds new add_users_table
+.TP
+Preview what would run:
+.B eds migrate dry-run
+.TP
+Apply pending migrations:
+.B eds migrate
+.TP
+Undo the last one:
+.B eds migrate down
+.SH DISCLAIMER
+This tool modifies your database schema and data. You are solely
+responsible for backing up your data before running any migration.
+The authors accept no liability for data loss or downtime resulting
+from its use.
+.SH SEE ALSO
+Full documentation and source: https://github.com/seyed/erl_data_shift
