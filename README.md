@@ -73,7 +73,7 @@ eds init          # scaffolds migrations/ and .env.example in the current direct
 ## 🔬Testing 
 
 <!-- COVERAGE-START -->
-### 🧪 Test Coverage — Overall: 80%
+### 🧪 Test Coverage — Overall: 82%
 
 [📊 View interactive line-by-line coverage report](https://seyed.github.io/erl_data_shift/)
 
@@ -82,8 +82,8 @@ eds init          # scaffolds migrations/ and .env.example in the current direct
 | ✅ erl_data_shift_migrations | 96% |
 | ✅ erl_data_shift_env | 94% |
 | ✅ erl_data_shift_db | 92% |
-| ✅ erl_data_shift_migrator | 89% |
+| ✅ erl_data_shift_migrator | 90% |
 | ✅ erl_data_shift_scaffold | 82% |
 | ✅ erl_data_shift_init | 80% |
-| ⚠️ erl_data_shift_app | 65% |
+| ⚠️ erl_data_shift_app | 71% |
 <!-- COVERAGE-END -->
