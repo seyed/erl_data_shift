@@ -430,3 +430,34 @@ connect_rejects_invalid_sslmode_test() ->
     EnvWithBadSsl = maps:put(<<"PG_SSLMODE">>, <<"yolo">>, sample_env()),
     Result = erl_data_shift_db:check_connection(EnvWithBadSsl),
     ?assertEqual({error, {invalid_sslmode, <<"yolo">>}}, Result).
+
+%% -- validate_migration/2 (always rolls back, regardless of outcome) --
+
+validate_migration_success_still_rolls_back_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, squery, fun
+        (_Conn, "BEGIN") -> {ok, [], []};
+        (_Conn, "ROLLBACK") -> {ok, [], []};
+        (_Conn, _Sql) -> {ok, [], []}
+    end),
+
+    Result = erl_data_shift_db:validate_migration(fake_conn, "CREATE TABLE t(id int);"),
+
+    ?assertEqual(ok, Result),
+    ?assert(meck:called(epgsql, squery, [fake_conn, "ROLLBACK"])),
+    ?assertEqual(0, meck:num_calls(epgsql, squery, [fake_conn, "COMMIT"])),
+    meck:unload(epgsql).
+
+validate_migration_sql_error_rolls_back_and_reports_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, squery, fun
+        (_Conn, "BEGIN") -> {ok, [], []};
+        (_Conn, "ROLLBACK") -> {ok, [], []};
+        (_Conn, _Sql) -> {error, syntax_error}
+    end),
+
+    Result = erl_data_shift_db:validate_migration(fake_conn, "NOT VALID SQL"),
+
+    ?assertEqual({error, syntax_error}, Result),
+    ?assert(meck:called(epgsql, squery, [fake_conn, "ROLLBACK"])),
+    meck:unload(epgsql).
