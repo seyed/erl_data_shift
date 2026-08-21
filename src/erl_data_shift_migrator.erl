@@ -1,5 +1,5 @@
 -module(erl_data_shift_migrator).
--export([run/3, rollback_last/2, dry_run/2]).
+-export([run/3, rollback_last/2, dry_run/2, validate/2]).
 
 -define(NO_APPLIED_MIGRATIONS, no_applied_migrations).
 -define(DOWN_FILE_MISSING, down_file_missing).
@@ -46,6 +46,33 @@ pending_files(Conn, Files) ->
                                not lists:member(erl_data_shift_migrations:extract_version(F), Applied)],
                     {ok, Pending}
             end
+    end.
+
+%% Test-runs every pending migration's SQL inside a rolled-back transaction
+%% (never persists anything, no lock needed). Unlike run/3, continues past
+%% failures so all problems are reported at once — useful for CI checks.
+%% Returns {ok, [{Filename, ok | {error, Reason}}]}.
+-spec validate(map(), file:filename()) -> {ok, [{string(), ok | {error, term()}}]} | {error, term()}.
+validate(Env, Dir) ->
+    case erl_data_shift_migrations:list_sql_files(Dir) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, Files} ->
+            erl_data_shift_db:with_connection(Env, fun(Conn) ->
+                case pending_files(Conn, Files) of
+                    {error, Reason} -> {error, Reason};
+                    {ok, Pending} -> {ok, validate_each(Conn, Dir, Pending)}
+                end
+            end)
+    end.
+
+validate_each(Conn, Dir, Files) ->
+    [{File, validate_one(Conn, Dir, File)} || File <- Files].
+
+validate_one(Conn, Dir, File) ->
+    case erl_data_shift_migrations:read_file(filename:join(Dir, File)) of
+        {error, Reason} -> {error, {read_failed, Reason}};
+        {ok, Sql} -> erl_data_shift_db:validate_migration(Conn, Sql)
     end.
 
 %% Rolls back the most recently applied migration: finds its up-file in Dir

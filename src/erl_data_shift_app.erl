@@ -13,6 +13,7 @@
     {"migrate down", "Rolls back the most recently applied migration."},
     {"migrate -f <path>", "Same as migrate, but points to a custom migrations directory."},
     {"new <name>", "Scaffolds a new numbered up+down migration file pair."},
+    {"validate", "Test-runs pending migrations in a rolled-back transaction to catch errors early."},
     {"init", "Scaffolds migrations/ and .env.example in the current directory."},
     {"--version", "Prints the eds version."},
     {"--help / -h", "Shows this help message."}
@@ -25,6 +26,7 @@
     "history"   => fun(_Args) -> history() end,
     "init"      => fun(_Args) -> init_cmd() end,
     "new"       => fun new_cmd/1,
+    "validate"  => fun validate_cmd/1,
     "version"   => fun(_Args) -> print_version() end,
     "help"      => fun(_Args) -> print_help() end
 }).
@@ -96,6 +98,42 @@ new_cmd([Name | _Rest]) ->
     catch
         Class:Err ->
             io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
+    end.
+
+validate_cmd(Args) ->
+    {Dir, _RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
+    try
+        case erl_data_shift_env:load() of
+            {error, Reason} ->
+                io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason]);
+            {ok, Env} ->
+                case erl_data_shift_migrator:validate(Env, Dir) of
+                    {ok, []} ->
+                        io:format("\033[32m✅ No pending migrations to validate.~n\033[0m");
+                    {ok, Results} ->
+                        print_validate_results(Results);
+                    {error, {directory_not_found, Dir}} ->
+                        io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [Dir]);
+                    {error, Reason} ->
+                        io:format("\033[31m❌ Could not validate migrations: ~p~n\033[0m", [Reason])
+                end
+        end
+    catch
+        Class:Err ->
+            io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
+    end.
+
+print_validate_results(Results) ->
+    lists:foreach(fun({File, Result}) ->
+        case Result of
+            ok -> io:format("\033[32m✅ ~ts~n\033[0m", [File]);
+            {error, Reason} -> io:format("\033[31m❌ ~ts — ~p~n\033[0m", [File, Reason])
+        end
+    end, Results),
+    FailCount = length([R || {_, {error, _}} = R <- Results]),
+    case FailCount of
+        0 -> io:format("\033[32m~nAll ~B migration(s) validated successfully.~n\033[0m", [length(Results)]);
+        _ -> io:format("\033[31m~n~B of ~B migration(s) failed validation.~n\033[0m", [FailCount, length(Results)])
     end.
 
 init_cmd() ->

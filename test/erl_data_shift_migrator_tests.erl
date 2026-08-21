@@ -289,3 +289,82 @@ dry_run_lists_pending_without_applying_test() ->
 dry_run_missing_directory_test() ->
     Result = erl_data_shift_migrator:dry_run(#{}, "/tmp/eds_no_such_dry_run_dir"),
     ?assertMatch({error, {directory_not_found, _}}, Result).
+
+%% -- validate/2 --
+
+validate_all_pass_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
+    meck:expect(erl_data_shift_db, validate_migration, fun(_Conn, _Sql) -> ok end),
+
+    Result = erl_data_shift_migrator:validate(#{}, Dir),
+
+    ?assertEqual({ok, [{"0001_init.sql", ok}, {"0002_add_b.sql", ok}]}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% Continues validating remaining files even after one fails — reports all
+%% problems at once rather than stopping at the first (unlike run/3).
+validate_continues_past_failures_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
+    meck:expect(erl_data_shift_db, validate_migration, fun
+        (_Conn, "CREATE TABLE a(id int);") -> {error, table_exists};
+        (_Conn, _Sql) -> ok
+    end),
+
+    Result = erl_data_shift_migrator:validate(#{}, Dir),
+
+    ?assertEqual({ok, [{"0001_init.sql", {error, table_exists}}, {"0002_add_b.sql", ok}]}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% Already-applied migrations are skipped, same as run/3 and dry_run/2.
+validate_skips_already_applied_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0001"]} end),
+    meck:expect(erl_data_shift_db, validate_migration, fun(_Conn, _Sql) -> ok end),
+
+    Result = erl_data_shift_migrator:validate(#{}, Dir),
+
+    ?assertEqual({ok, [{"0002_add_b.sql", ok}]}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+validate_no_pending_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0001", "0002"]} end),
+
+    Result = erl_data_shift_migrator:validate(#{}, Dir),
+
+    ?assertEqual({ok, []}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+validate_missing_directory_test() ->
+    Result = erl_data_shift_migrator:validate(#{}, "/tmp/eds_no_such_validate_dir"),
+    ?assertMatch({error, {directory_not_found, _}}, Result).
+
+validate_ensure_table_failure_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> {error, ddl_error} end),
+
+    Result = erl_data_shift_migrator:validate(#{}, Dir),
+
+    ?assertEqual({error, ddl_error}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).

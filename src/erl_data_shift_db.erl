@@ -2,7 +2,7 @@
 -export([check_connection/1, get_table_stats/1, get_migration_history/1,
          with_connection/2, ensure_migrations_table/1, get_applied_versions/1,
          apply_migration/3, get_last_applied_version/1, revert_migration/3,
-         acquire_migration_lock/1, release_migration_lock/1]).
+         acquire_migration_lock/1, release_migration_lock/1, validate_migration/2]).
 
 -define(REQUIRED_KEYS, [<<"PG_HOST">>, <<"PG_PORT">>, <<"PG_USER">>, <<"PG_PASSWORD">>, <<"PG_DATABASE">>]).
 
@@ -172,6 +172,17 @@ acquire_migration_lock(Conn) ->
 release_migration_lock(Conn) ->
     epgsql:equery(Conn, "SELECT pg_advisory_unlock($1)", [?MIGRATION_LOCK_KEY]),
     ok.
+
+%% Runs Sql inside a transaction that is ALWAYS rolled back, regardless of
+%% success — validates the SQL actually executes against the live schema
+%% (catching real errors a static parser would miss) without persisting
+%% anything.
+-spec validate_migration(epgsql:connection(), string()) -> ok | {error, term()}.
+validate_migration(Conn, Sql) ->
+    {ok, [], []} = epgsql:squery(Conn, "BEGIN"),
+    Result = classify(epgsql:squery(Conn, Sql)),
+    epgsql:squery(Conn, "ROLLBACK"),
+    Result.
 
 with_params(Env, Fun) ->
     Missing = [K || K <- ?REQUIRED_KEYS, erl_data_shift_env:get(K, Env) =:= undefined],
