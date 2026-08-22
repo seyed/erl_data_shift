@@ -902,19 +902,21 @@ verify_cmd_unexpected_error_test() ->
 %% -- start/2: covers print_caution/0, pad/2, and the full start sequence --
 
 start_returns_ok_tuple_and_prints_caution_test() ->
-    %% start/2 calls init:stop(0) internally, which would terminate the test
-    %% runner's VM if left unmocked — mock it, plus get_plain_arguments so
-    %% dispatch has something harmless to route (avoids "No command given").
-    meck:new(init, [unstick, passthrough]),
-    meck:expect(init, stop, fun(_Code) -> ok end),
-    meck:expect(init, get_plain_arguments, fun() -> ["version"] end),
+    %% start/2 calls stop_vm/0 (which wraps init:stop(0)) — mock stop_vm/0
+    %% on THIS module via meck's passthrough mode rather than mocking the
+    %% 'init' kernel module directly. Mocking init:stop/1 via
+    %% unstick/passthrough is unreliable and can genuinely kill the VM,
+    %% since init is tightly coupled to real VM shutdown machinery, not
+    %% just a regular callable module — this actually happened in CI.
+    meck:new(erl_data_shift_app, [passthrough]),
+    meck:expect(erl_data_shift_app, stop_vm, fun() -> ok end),
 
     Result = erl_data_shift_app:start(normal, []),
 
     ?assertMatch({ok, _Pid}, Result),
-    ?assert(meck:called(init, stop, [0])),
+    ?assert(meck:called(erl_data_shift_app, stop_vm, [])),
 
-    meck:unload(init).
+    meck:unload(erl_data_shift_app).
 
 %% -- new_cmd's generic {error, Reason} branch (not already_exists) --
 

@@ -1,7 +1,8 @@
 -module(erl_data_shift_app).
 -behaviour(application).
 -export([start/2, stop/1, dispatch/1, format_duration/1, extract_leading_digits/1,
-         column_widths/2, human_size/1, time_ago/1, format_datetime/1, format_cell/1]).
+         column_widths/2, human_size/1, time_ago/1, format_datetime/1, format_cell/1,
+         stop_vm/0]).
 
 %% Registry mapping subcommand name -> handler fun/0. Add new commands here.
 -define(HELP_ENTRIES, [
@@ -38,8 +39,15 @@ start(_StartType, _StartArgs) ->
     print_caution(),
     Args = init:get_plain_arguments(),
     dispatch(Args),
-    init:stop(0),
+    stop_vm(),
     {ok, self()}.
+
+%% Isolated so tests can safely mock this module's own stop_vm/0 instead of
+%% mocking the 'init' kernel module directly — mocking init:stop/1 via
+%% unstick/passthrough is unreliable and can genuinely kill the VM (init is
+%% tightly coupled to real VM shutdown, not just a regular callable module).
+stop_vm() ->
+    init:stop(0).
 
 stop(_State) ->
     ok.
