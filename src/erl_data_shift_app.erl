@@ -14,6 +14,7 @@
     {"migrate -f <path>", "Same as migrate, but points to a custom migrations directory."},
     {"new <name>", "Scaffolds a new numbered up+down migration file pair."},
     {"validate", "Test-runs pending migrations in a rolled-back transaction to catch errors early."},
+    {"verify", "Checks that applied migration files haven't been edited since they ran (checksum drift)."},
     {"init", "Scaffolds migrations/ and .env.example in the current directory."},
     {"--version", "Prints the eds version."},
     {"--help / -h", "Shows this help message."}
@@ -27,6 +28,7 @@
     "init"      => fun(_Args) -> init_cmd() end,
     "new"       => fun new_cmd/1,
     "validate"  => fun validate_cmd/1,
+    "verify"    => fun verify_cmd/1,
     "version"   => fun(_Args) -> print_version() end,
     "help"      => fun(_Args) -> print_help() end
 }).
@@ -134,6 +136,46 @@ print_validate_results(Results) ->
     case FailCount of
         0 -> io:format("\033[32m~nAll ~B migration(s) validated successfully.~n\033[0m", [length(Results)]);
         _ -> io:format("\033[31m~n~B of ~B migration(s) failed validation.~n\033[0m", [FailCount, length(Results)])
+    end.
+
+verify_cmd(Args) ->
+    {Dir, _RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
+    try
+        case erl_data_shift_env:load() of
+            {error, Reason} ->
+                io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason]);
+            {ok, Env} ->
+                case erl_data_shift_migrator:verify_checksums(Env, Dir) of
+                    {ok, []} ->
+                        io:format("\033[32m✅ No checksummed migrations to verify.~n\033[0m");
+                    {ok, Results} ->
+                        print_verify_results(Results);
+                    {error, {directory_not_found, Dir}} ->
+                        io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [Dir]);
+                    {error, Reason} ->
+                        io:format("\033[31m❌ Could not verify checksums: ~p~n\033[0m", [Reason])
+                end
+        end
+    catch
+        Class:Err ->
+            io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
+    end.
+
+print_verify_results(Results) ->
+    lists:foreach(fun({Version, Status}) ->
+        case Status of
+            ok ->
+                io:format("\033[32m✅ ~ts — unchanged~n\033[0m", [Version]);
+            missing_local_file ->
+                io:format("\033[33m⚠️  ~ts — no matching local file found~n\033[0m", [Version]);
+            {mismatch, _Stored, _Local} ->
+                io:format("\033[31m❌ ~ts — file was edited after being applied~n\033[0m", [Version])
+        end
+    end, Results),
+    Problems = length([R || {_, S} = R <- Results, S =/= ok]),
+    case Problems of
+        0 -> io:format("\033[32m~nAll ~B applied migration(s) match their local files.~n\033[0m", [length(Results)]);
+        _ -> io:format("\033[31m~n~B of ~B applied migration(s) have drifted from local files.~n\033[0m", [Problems, length(Results)])
     end.
 
 init_cmd() ->
