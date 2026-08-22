@@ -516,7 +516,31 @@ validate_cmd_no_pending_test() ->
     file:del_dir_r(Dir).
 
 validate_cmd_missing_directory_test() ->
-    ?assertEqual(ok, erl_data_shift_app:dispatch(["validate", "-f", "/tmp/eds_no_such_validate_dir"])).
+    Dir = "/tmp/eds_no_such_validate_dir",
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, validate, fun(_Env, D) -> {error, {directory_not_found, D}} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["validate", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env).
+
+%% validate_cmd's generic {error, Reason} branch (not directory_not_found).
+validate_cmd_generic_error_test() ->
+    Dir = "/tmp/eds_app_validate_generic_error_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, validate, fun(_Env, _Dir) -> {error, some_unexpected_reason} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["validate", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
 
 validate_cmd_env_load_failure_test() ->
     Dir = "/tmp/eds_app_validate_env_fail_test",
@@ -835,7 +859,31 @@ verify_cmd_no_checksums_test() ->
     file:del_dir_r(Dir).
 
 verify_cmd_missing_directory_test() ->
-    ?assertEqual(ok, erl_data_shift_app:dispatch(["verify", "-f", "/tmp/eds_no_such_verify_dir2"])).
+    Dir = "/tmp/eds_no_such_verify_dir2",
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, verify_checksums, fun(_Env, D) -> {error, {directory_not_found, D}} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["verify", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env).
+
+%% verify_cmd's generic {error, Reason} branch (not directory_not_found).
+verify_cmd_generic_error_test() ->
+    Dir = "/tmp/eds_app_verify_generic_error_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, verify_checksums, fun(_Env, _Dir) -> {error, some_unexpected_reason} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["verify", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
 
 verify_cmd_env_load_failure_test() ->
     ?assertEqual(ok, erl_data_shift_app:dispatch(["verify", "-f", "/tmp/eds_verify_env_fail_nonexistent"])).
@@ -850,3 +898,140 @@ verify_cmd_unexpected_error_test() ->
 
     meck:unload(erl_data_shift_env),
     file:del_dir_r(Dir).
+
+%% -- start/2: covers print_caution/0, pad/2, and the full start sequence --
+
+start_returns_ok_tuple_and_prints_caution_test() ->
+    %% start/2 calls init:stop(0) internally, which would terminate the test
+    %% runner's VM if left unmocked — mock it, plus get_plain_arguments so
+    %% dispatch has something harmless to route (avoids "No command given").
+    meck:new(init, [unstick, passthrough]),
+    meck:expect(init, stop, fun(_Code) -> ok end),
+    meck:expect(init, get_plain_arguments, fun() -> ["version"] end),
+
+    Result = erl_data_shift_app:start(normal, []),
+
+    ?assertMatch({ok, _Pid}, Result),
+    ?assert(meck:called(init, stop, [0])),
+
+    meck:unload(init).
+
+%% -- new_cmd's generic {error, Reason} branch (not already_exists) --
+
+new_cmd_generic_error_test() ->
+    meck:new(erl_data_shift_scaffold, [non_strict]),
+    meck:expect(erl_data_shift_scaffold, create_migration, fun(_Dir, _Name) ->
+        {error, disk_full}
+    end),
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["new", "test"])),
+    meck:unload(erl_data_shift_scaffold).
+
+%% -- init_cmd's "already initialized, nothing created" branch --
+
+init_cmd_already_initialized_test() ->
+    Dir = "/tmp/eds_app_init_already_done_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, get_original_cwd, fun() -> Dir end),
+    meck:new(erl_data_shift_init, [non_strict]),
+    meck:expect(erl_data_shift_init, run, fun(_Dir) ->
+        {ok, #{created => [], skipped => ["migrations/", ".env.example"]}}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["init"])),
+
+    meck:unload(erl_data_shift_init),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+%% -- migrate_up's generic {error, Reason} branch (list_sql_files fails with
+%% something other than directory_not_found, e.g. a permissions error) --
+
+migrate_up_list_sql_files_generic_error_test() ->
+    meck:new(erl_data_shift_migrations, [passthrough]),
+    meck:expect(erl_data_shift_migrations, list_sql_files, fun(_Dir) -> {error, eacces} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "-f", "/tmp/eds_irrelevant_dir"])),
+
+    meck:unload(erl_data_shift_migrations).
+
+%% -- safe_file_size's false branch: a file the mocked dry_run reported as
+%% pending no longer exists on disk when total_bytes tries to size it --
+
+run_migrate_bench_summary_with_missing_file_test() ->
+    Dir = "/tmp/eds_app_bench_missing_file_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    %% Note: "0002_ghost.sql" is never actually created on disk.
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {ok, ["0002_ghost.sql"]} end),
+    meck:expect(erl_data_shift_migrator, run, fun(_Env, _Dir, _ProgressFun) -> {ok, 1} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+%% -- history's generic {error, Reason} branch (not no_migration_table_found) --
+
+history_generic_error_test() ->
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, get_migration_history, fun(_Env) -> {error, timeout} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["history"])),
+
+    meck:unload(erl_data_shift_db),
+    meck:unload(erl_data_shift_env).
+
+%% -- format_cell's catch-all clause (anything not null/binary/integer/datetime) --
+
+format_cell_catch_all_atom_test() ->
+    Result = lists:flatten(erl_data_shift_app:format_cell(some_atom)),
+    ?assertEqual("some_atom", Result).
+
+format_cell_catch_all_float_test() ->
+    Result = lists:flatten(erl_data_shift_app:format_cell(3.14)),
+    ?assert(string:find(Result, "3.14") =/= nomatch).
+
+%% -- history's drift-check branches: version column present with actual
+%% drift both ways, and version column absent entirely --
+
+history_drift_check_with_both_directions_test() ->
+    Dir = "/tmp/eds_app_history_drift_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, get_migration_history, fun(_Env) ->
+        {ok, {<<"schema_migrations">>, [<<"version">>], [{<<"0001">>}]}}
+    end),
+    meck:new(erl_data_shift_migrations, [passthrough]),
+    meck:expect(erl_data_shift_migrations, list_sql_files, fun(_Dir) ->
+        {ok, ["0001_init.sql", "0002_pending.sql"]}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["history"])),
+
+    meck:unload(erl_data_shift_migrations),
+    meck:unload(erl_data_shift_db),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+%% No "version"-named column at all -> find_version_index returns not_found,
+%% print_drift_check short-circuits to ok without attempting any comparison.
+history_drift_check_no_version_column_test() ->
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, get_migration_history, fun(_Env) ->
+        {ok, {<<"custom_migrations">>, [<<"id">>, <<"name">>], [{1, <<"a">>}]}}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["history"])),
+
+    meck:unload(erl_data_shift_db),
+    meck:unload(erl_data_shift_env).
