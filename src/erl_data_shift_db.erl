@@ -2,7 +2,8 @@
 -export([check_connection/1, get_table_stats/1, get_migration_history/1,
          with_connection/2, ensure_migrations_table/1, get_applied_versions/1,
          apply_migration/3, get_last_applied_version/1, revert_migration/3,
-         acquire_migration_lock/1, release_migration_lock/1, validate_migration/2]).
+         acquire_migration_lock/1, release_migration_lock/1, validate_migration/2,
+         get_applied_checksums/1]).
 
 -define(REQUIRED_KEYS, [<<"PG_HOST">>, <<"PG_PORT">>, <<"PG_USER">>, <<"PG_PASSWORD">>, <<"PG_DATABASE">>]).
 
@@ -53,7 +54,8 @@ ensure_migrations_table(Conn) ->
         "version TEXT NOT NULL UNIQUE, "
         "applied_at TIMESTAMPTZ NOT NULL DEFAULT now())",
         "ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS applied_by TEXT",
-        "ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS reverted_at TIMESTAMPTZ"
+        "ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS reverted_at TIMESTAMPTZ",
+        "ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum TEXT"
     ],
     run_statements(Conn, Statements).
 
@@ -81,8 +83,9 @@ apply_migration(Conn, Version, Sql) ->
     {ok, [], []} = epgsql:squery(Conn, "BEGIN"),
     case classify(epgsql:squery(Conn, Sql)) of
         ok ->
-            InsertSql = "INSERT INTO schema_migrations (version, applied_by) VALUES ($1, $2)",
-            case epgsql:equery(Conn, InsertSql, [Version, current_user()]) of
+            InsertSql = "INSERT INTO schema_migrations (version, applied_by, checksum) VALUES ($1, $2, $3)",
+            Checksum = erl_data_shift_migrations:compute_checksum(Sql),
+            case epgsql:equery(Conn, InsertSql, [Version, current_user(), Checksum]) of
                 {ok, _} ->
                     epgsql:squery(Conn, "COMMIT"),
                     ok;
@@ -183,6 +186,20 @@ validate_migration(Conn, Sql) ->
     Result = classify(epgsql:squery(Conn, Sql)),
     epgsql:squery(Conn, "ROLLBACK"),
     Result.
+
+%% Returns {Version, Checksum} pairs for currently-applied (not reverted)
+%% migrations that have a stored checksum (older rows from before this
+%% feature existed will have NULL and are simply skipped, not flagged).
+-spec get_applied_checksums(epgsql:connection()) -> {ok, [{string(), string()}]} | {error, term()}.
+get_applied_checksums(Conn) ->
+    Sql = "SELECT version, checksum FROM schema_migrations "
+          "WHERE reverted_at IS NULL AND checksum IS NOT NULL",
+    case epgsql:equery(Conn, Sql, []) of
+        {ok, _Cols, Rows} ->
+            {ok, [{binary_to_list(V), binary_to_list(C)} || {V, C} <- Rows]};
+        {error, Reason} ->
+            {error, Reason}
+    end.
 
 with_params(Env, Fun) ->
     Missing = [K || K <- ?REQUIRED_KEYS, erl_data_shift_env:get(K, Env) =:= undefined],
