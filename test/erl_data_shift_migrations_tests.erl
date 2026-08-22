@@ -92,3 +92,25 @@ list_sql_files_excludes_down_files_test() ->
 
     ?assertEqual(["0001_init.sql"], Files),
     file:del_dir_r(Dir).
+
+%% -- compute_checksum/1 --
+
+compute_checksum_is_deterministic_test() ->
+    Sql = "CREATE TABLE a(id int);",
+    ?assertEqual(erl_data_shift_migrations:compute_checksum(Sql),
+                 erl_data_shift_migrations:compute_checksum(Sql)).
+
+compute_checksum_differs_for_different_input_test() ->
+    C1 = erl_data_shift_migrations:compute_checksum("CREATE TABLE a(id int);"),
+    C2 = erl_data_shift_migrations:compute_checksum("CREATE TABLE b(id int);"),
+    ?assertNotEqual(C1, C2).
+
+compute_checksum_accepts_binary_and_list_identically_test() ->
+    Sql = "CREATE TABLE a(id int);",
+    ?assertEqual(erl_data_shift_migrations:compute_checksum(Sql),
+                 erl_data_shift_migrations:compute_checksum(list_to_binary(Sql))).
+
+compute_checksum_returns_64_char_hex_string_test() ->
+    Checksum = erl_data_shift_migrations:compute_checksum("test"),
+    ?assertEqual(64, length(Checksum)),
+    ?assert(lists:all(fun(C) -> lists:member(C, "0123456789abcdef") end, Checksum)).

@@ -1,5 +1,5 @@
 -module(erl_data_shift_migrator).
--export([run/3, rollback_last/2, dry_run/2, validate/2]).
+-export([run/3, rollback_last/2, dry_run/2, validate/2, verify_checksums/2]).
 
 -define(NO_APPLIED_MIGRATIONS, no_applied_migrations).
 -define(DOWN_FILE_MISSING, down_file_missing).
@@ -73,6 +73,47 @@ validate_one(Conn, Dir, File) ->
     case erl_data_shift_migrations:read_file(filename:join(Dir, File)) of
         {error, Reason} -> {error, {read_failed, Reason}};
         {ok, Sql} -> erl_data_shift_db:validate_migration(Conn, Sql)
+    end.
+
+%% Detects drift: for every applied (not reverted) migration with a stored
+%% checksum, recomputes the checksum of its local up-file and compares.
+%% Flags mismatches (file edited after being applied) and missing local
+%% files separately. No lock needed — read-only, nothing is written.
+%% Returns {ok, [{Version, Status}]} where Status is one of:
+%%   ok | {mismatch, StoredChecksum, LocalChecksum} | missing_local_file
+-spec verify_checksums(map(), file:filename()) ->
+    {ok, [{string(), ok | {mismatch, string(), string()} | missing_local_file}]} | {error, term()}.
+verify_checksums(Env, Dir) ->
+    case erl_data_shift_migrations:list_sql_files(Dir) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, Files} ->
+            erl_data_shift_db:with_connection(Env, fun(Conn) ->
+                case erl_data_shift_db:get_applied_checksums(Conn) of
+                    {error, Reason} -> {error, Reason};
+                    {ok, Checksums} -> {ok, verify_each(Dir, Files, Checksums)}
+                end
+            end)
+    end.
+
+verify_each(Dir, Files, Checksums) ->
+    [{Version, verify_one(Dir, Files, Version, StoredChecksum)} || {Version, StoredChecksum} <- Checksums].
+
+verify_one(Dir, Files, Version, StoredChecksum) ->
+    case find_up_file(Files, Version) of
+        not_found ->
+            missing_local_file;
+        UpFile ->
+            case erl_data_shift_migrations:read_file(filename:join(Dir, UpFile)) of
+                {error, _Reason} ->
+                    missing_local_file;
+                {ok, Sql} ->
+                    LocalChecksum = erl_data_shift_migrations:compute_checksum(Sql),
+                    case LocalChecksum =:= StoredChecksum of
+                        true -> ok;
+                        false -> {mismatch, StoredChecksum, LocalChecksum}
+                    end
+            end
     end.
 
 %% Rolls back the most recently applied migration: finds its up-file in Dir

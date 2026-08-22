@@ -1,6 +1,6 @@
 -module(erl_data_shift_migrations).
 -export([resolve_dir/1, list_sql_files/1, extract_version/1, read_file/1,
-         down_file_for/1, has_down_file/2]).
+         down_file_for/1, has_down_file/2, compute_checksum/1]).
 
 %% Suffix convention for rollback scripts: "0001_init.sql" pairs with
 %% "0001_init.down.sql" in the same directory.
@@ -49,6 +49,15 @@ down_file_for(UpFilename) ->
 -spec has_down_file(file:filename(), string()) -> boolean().
 has_down_file(Dir, UpFilename) ->
     filelib:is_regular(filename:join(Dir, down_file_for(UpFilename))).
+
+%% Computes a stable hex-encoded SHA256 checksum of migration SQL content,
+%% used to detect if an already-applied migration file was edited afterward.
+-spec compute_checksum(string() | binary()) -> string().
+compute_checksum(Sql) when is_list(Sql) ->
+    compute_checksum(list_to_binary(Sql));
+compute_checksum(Sql) when is_binary(Sql) ->
+    Hash = crypto:hash(sha256, Sql),
+    lists:flatten([io_lib:format("~2.16.0b", [B]) || <<B>> <= Hash]).
 
 %% -- internal --
 
