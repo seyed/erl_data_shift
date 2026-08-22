@@ -28,7 +28,9 @@ jobs:
         run: rebar3 eunit --cover
 
       - name: Generate coverage report
-        run: rebar3 cover --verbose | tee cover_output.txt
+        run: |
+          set -o pipefail
+          rebar3 cover --verbose | tee cover_output.txt
 
       - name: Upload coverage report for Pages
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -206,7 +208,7 @@ jobs:
       - name: Update README checksums section
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          BLOCK="<!-- CHECKSUMS-START -->\n### Release ${TAG} SHA256 Checksums\n\n\`\`\`\n"
+          BLOCK="<!-- CHECKSUMS-START -->\n### 🔒 Release ${TAG} SHA256 Checksums\n\n\`\`\`\n"
           for f in checksums/*.sha256; do
             NAME=$(basename "$f" .sha256)
             SUM=$(cat "$f")
