@@ -25,12 +25,12 @@ jobs:
           rebar3-version: "3.27.0"
 
       - name: Run tests with coverage
-        run: rebar3 eunit --cover
+        run: rebar3 as test eunit --cover
 
       - name: Generate coverage report
         run: |
           set -o pipefail
-          rebar3 cover --verbose | tee cover_output.txt
+          rebar3 as test cover --verbose | tee cover_output.txt
 
       - name: Upload coverage report for Pages
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
