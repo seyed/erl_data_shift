@@ -114,3 +114,23 @@ compute_checksum_returns_64_char_hex_string_test() ->
     Checksum = erl_data_shift_migrations:compute_checksum("test"),
     ?assertEqual(64, length(Checksum)),
     ?assert(lists:all(fun(C) -> lists:member(C, "0123456789abcdef") end, Checksum)).
+
+%% Regression test: tokens appearing before the -f/--path flag must be
+%% preserved in RemainingArgs, not silently dropped. Previously
+%% resolve_dir(["down", "-f", Path]) returned {Path, []}, losing "down" —
+%% meaning "eds migrate down -f <path>" silently ran a plain migrate
+%% instead of a rollback.
+resolve_dir_preserves_tokens_before_flag_test() ->
+    {Dir, Rest} = erl_data_shift_migrations:resolve_dir(["down", "-f", "/tmp/custom_migrations"]),
+    ?assertEqual("/tmp/custom_migrations", Dir),
+    ?assertEqual(["down"], Rest).
+
+resolve_dir_preserves_tokens_before_path_flag_test() ->
+    {Dir, Rest} = erl_data_shift_migrations:resolve_dir(["dry-run", "--path", "/tmp/custom_migrations"]),
+    ?assertEqual("/tmp/custom_migrations", Dir),
+    ?assertEqual(["dry-run"], Rest).
+
+resolve_dir_preserves_tokens_on_both_sides_of_flag_test() ->
+    {Dir, Rest} = erl_data_shift_migrations:resolve_dir(["down", "-f", "/tmp/x", "extra"]),
+    ?assertEqual("/tmp/x", Dir),
+    ?assertEqual(["down", "extra"], Rest).
