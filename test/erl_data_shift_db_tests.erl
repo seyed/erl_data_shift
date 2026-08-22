@@ -160,7 +160,7 @@ ensure_migrations_table_success_test() ->
     meck:new(epgsql, [non_strict]),
     meck:expect(epgsql, squery, fun(_Conn, _Sql) -> {ok, [], []} end),
     ?assertEqual(ok, erl_data_shift_db:ensure_migrations_table(fake_conn)),
-    ?assertEqual(3, meck:num_calls(epgsql, squery, '_')),
+    ?assertEqual(4, meck:num_calls(epgsql, squery, '_')),
     meck:unload(epgsql).
 
 ensure_migrations_table_failure_on_create_test() ->
@@ -207,7 +207,7 @@ apply_migration_success_commits_test() ->
         (_Conn, "ROLLBACK") -> {ok, [], []};
         (_Conn, _Sql) -> {ok, [], []} %% the migration's own SQL
     end),
-    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version, _AppliedBy]) -> {ok, 1} end),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version, _AppliedBy, _Checksum]) -> {ok, 1} end),
 
     Result = erl_data_shift_db:apply_migration(fake_conn, "0001", "CREATE TABLE t(id int);"),
 
@@ -236,7 +236,7 @@ apply_migration_insert_failure_rolls_back_test() ->
         (_Conn, "ROLLBACK") -> {ok, [], []};
         (_Conn, _Sql) -> {ok, [], []}
     end),
-    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version, _AppliedBy]) -> {error, duplicate_version} end),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_Version, _AppliedBy, _Checksum]) -> {error, duplicate_version} end),
 
     Result = erl_data_shift_db:apply_migration(fake_conn, "0001", "CREATE TABLE t(id int);"),
 
@@ -460,4 +460,50 @@ validate_migration_sql_error_rolls_back_and_reports_test() ->
 
     ?assertEqual({error, syntax_error}, Result),
     ?assert(meck:called(epgsql, squery, [fake_conn, "ROLLBACK"])),
+    meck:unload(epgsql).
+
+%% -- get_applied_checksums/1 --
+
+get_applied_checksums_success_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, Sql, []) ->
+        ?assert(string:find(Sql, "reverted_at IS NULL") =/= nomatch),
+        ?assert(string:find(Sql, "checksum IS NOT NULL") =/= nomatch),
+        {ok, [col1, col2], [{<<"0001">>, <<"abc123">>}, {<<"0002">>, <<"def456">>}]}
+    end),
+    Result = erl_data_shift_db:get_applied_checksums(fake_conn),
+    ?assertEqual({ok, [{"0001", "abc123"}, {"0002", "def456"}]}, Result),
+    meck:unload(epgsql).
+
+get_applied_checksums_empty_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, []) -> {ok, [col1, col2], []} end),
+    ?assertEqual({ok, []}, erl_data_shift_db:get_applied_checksums(fake_conn)),
+    meck:unload(epgsql).
+
+get_applied_checksums_query_error_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, []) -> {error, table_missing} end),
+    ?assertEqual({error, table_missing}, erl_data_shift_db:get_applied_checksums(fake_conn)),
+    meck:unload(epgsql).
+
+%% apply_migration now also stores a checksum of the SQL it just ran.
+apply_migration_stores_checksum_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, squery, fun
+        (_Conn, "BEGIN") -> {ok, [], []};
+        (_Conn, "COMMIT") -> {ok, [], []};
+        (_Conn, "ROLLBACK") -> {ok, [], []};
+        (_Conn, _Sql) -> {ok, [], []}
+    end),
+    Sql = "CREATE TABLE t(id int);",
+    ExpectedChecksum = erl_data_shift_migrations:compute_checksum(Sql),
+    meck:expect(epgsql, equery, fun(_Conn, _InsertSql, [_Version, _AppliedBy, Checksum]) ->
+        ?assertEqual(ExpectedChecksum, Checksum),
+        {ok, 1}
+    end),
+
+    Result = erl_data_shift_db:apply_migration(fake_conn, "0001", Sql),
+
+    ?assertEqual(ok, Result),
     meck:unload(epgsql).
