@@ -257,6 +257,7 @@ migrate_success_path_test() ->
     meck:new(erl_data_shift_env, [passthrough]),
     meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
     meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {ok, []} end),
     meck:expect(erl_data_shift_migrator, run, fun(_Env, _Dir, _ProgressFun) -> {ok, 1} end),
 
     ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "-f", Dir])),
@@ -273,9 +274,48 @@ migrate_failure_path_test() ->
     meck:new(erl_data_shift_env, [passthrough]),
     meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
     meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {ok, []} end),
     meck:expect(erl_data_shift_migrator, run, fun(_Env, _Dir, _ProgressFun) ->
         {error, {migration_failed, "0001_init.sql", bad_sql}}
     end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+%% -- run_migrate's success path with a real file (exercises benchmark summary) --
+
+run_migrate_success_with_bench_summary_test() ->
+    Dir = "/tmp/eds_app_run_migrate_bench_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    ok = file:write_file(filename:join(Dir, "0001_init.sql"), <<"CREATE TABLE a(id int);">>),
+
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {ok, ["0001_init.sql"]} end),
+    meck:expect(erl_data_shift_migrator, run, fun(_Env, _Dir, _ProgressFun) -> {ok, 1} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+%% dry_run failing before the real run shouldn't block the migration itself —
+%% file/byte reporting just falls back to 0 for that summary line.
+run_migrate_success_when_dry_run_precheck_fails_test() ->
+    Dir = "/tmp/eds_app_run_migrate_dryrun_fails_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    ok = file:write_file(filename:join(Dir, "0001_init.sql"), <<"-- sql">>),
+
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {error, some_precheck_error} end),
+    meck:expect(erl_data_shift_migrator, run, fun(_Env, _Dir, _ProgressFun) -> {ok, 1} end),
 
     ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "-f", Dir])),
 
@@ -418,6 +458,7 @@ migrate_locked_path_test() ->
     meck:new(erl_data_shift_env, [passthrough]),
     meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
     meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {ok, []} end),
     meck:expect(erl_data_shift_migrator, run, fun(_Env, _Dir, _ProgressFun) -> {error, migration_locked} end),
 
     ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "-f", Dir])),
@@ -581,6 +622,7 @@ migrate_up_generic_error_test() ->
     meck:new(erl_data_shift_env, [passthrough]),
     meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
     meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {ok, []} end),
     meck:expect(erl_data_shift_migrator, run, fun(_Env, _Dir, _ProgressFun) -> {error, some_unexpected_reason} end),
 
     ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "-f", Dir])),
@@ -733,6 +775,7 @@ run_migrate_migration_failed_test() ->
     meck:new(erl_data_shift_env, [passthrough]),
     meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
     meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {ok, []} end),
     meck:expect(erl_data_shift_migrator, run, fun(_Env, _Dir, _ProgressFun) ->
         {error, {migration_failed, "0001_init.sql", syntax_error}}
     end),
