@@ -61,10 +61,18 @@ compute_checksum(Sql) when is_binary(Sql) ->
 
 %% -- internal --
 
-take_flag(["-f", Path | Rest]) -> {ok, Path, Rest};
-take_flag(["--path", Path | Rest]) -> {ok, Path, Rest};
-take_flag([_ | Rest]) -> take_flag(Rest);
-take_flag([]) -> none.
+%% Scans Args for a "-f"/"--path" flag anywhere in the list, returning the
+%% path plus every other token (in original relative order, whether it came
+%% before or after the flag). Previously this dropped tokens preceding the
+%% flag — meaning "migrate down -f path" silently lost "down" and ran a
+%% plain migrate instead of a rollback. Fixed by accumulating skipped
+%% tokens instead of discarding them.
+take_flag(Args) -> take_flag(Args, []).
+
+take_flag(["-f", Path | Rest], Acc) -> {ok, Path, lists:reverse(Acc) ++ Rest};
+take_flag(["--path", Path | Rest], Acc) -> {ok, Path, lists:reverse(Acc) ++ Rest};
+take_flag([H | Rest], Acc) -> take_flag(Rest, [H | Acc]);
+take_flag([], _Acc) -> none.
 
 is_down_file(Filename) ->
     Suffix = ?DOWN_SUFFIX,
