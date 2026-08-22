@@ -368,3 +368,76 @@ validate_ensure_table_failure_test() ->
     ?assertEqual({error, ddl_error}, Result),
     meck:unload(erl_data_shift_db),
     teardown(Dir).
+
+%% -- verify_checksums/2 --
+
+verify_checksums_all_match_test() ->
+    Dir = setup(),
+    Checksum1 = erl_data_shift_migrations:compute_checksum("CREATE TABLE a(id int);"),
+    Checksum2 = erl_data_shift_migrations:compute_checksum("CREATE TABLE b(id int);"),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) ->
+        {ok, [{"0001", Checksum1}, {"0002", Checksum2}]}
+    end),
+
+    Result = erl_data_shift_migrator:verify_checksums(#{}, Dir),
+
+    ?assertEqual({ok, [{"0001", ok}, {"0002", ok}]}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% A locally-edited file after being applied is flagged as a mismatch.
+verify_checksums_detects_edited_file_test() ->
+    Dir = setup(),
+    OriginalChecksum = erl_data_shift_migrations:compute_checksum("SOMETHING ELSE ENTIRELY;"),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, [{"0001", OriginalChecksum}]} end),
+
+    Result = erl_data_shift_migrator:verify_checksums(#{}, Dir),
+
+    ?assertMatch({ok, [{"0001", {mismatch, _, _}}]}, Result),
+    teardown(Dir),
+    meck:unload(erl_data_shift_db).
+
+%% Applied version with no matching local file at all.
+verify_checksums_missing_local_file_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, [{"0099", "somechecksum"}]} end),
+
+    Result = erl_data_shift_migrator:verify_checksums(#{}, Dir),
+
+    ?assertEqual({ok, [{"0099", missing_local_file}]}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+verify_checksums_no_applied_migrations_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
+
+    Result = erl_data_shift_migrator:verify_checksums(#{}, Dir),
+
+    ?assertEqual({ok, []}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+verify_checksums_missing_directory_test() ->
+    Result = erl_data_shift_migrator:verify_checksums(#{}, "/tmp/eds_no_such_verify_dir"),
+    ?assertMatch({error, {directory_not_found, _}}, Result).
+
+verify_checksums_query_error_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {error, table_missing} end),
+
+    Result = erl_data_shift_migrator:verify_checksums(#{}, Dir),
+
+    ?assertEqual({error, table_missing}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
