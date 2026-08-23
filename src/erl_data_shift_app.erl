@@ -39,7 +39,7 @@ start(_StartType, _StartArgs) ->
     print_caution(),
     Args = init:get_plain_arguments(),
     dispatch(Args),
-    stop_vm(),
+    ?MODULE:stop_vm(),
     {ok, self()}.
 
 %% Isolated so tests can safely mock this module's own stop_vm/0 instead of
