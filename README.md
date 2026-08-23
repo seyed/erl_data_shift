@@ -73,7 +73,7 @@ eds init          # scaffolds migrations/ and .env.example in the current direct
 ## 🔬Testing 
 
 <!-- COVERAGE-START -->
-### 🧪 Test Coverage — Overall: 93%
+### 🧪 Test Coverage — Overall: 94%
 
 [📊 View interactive line-by-line coverage report](https://seyed.github.io/erl_data_shift/)
 
