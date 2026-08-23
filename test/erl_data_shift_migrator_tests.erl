@@ -25,6 +25,7 @@ run_applies_all_pending_in_order_test() ->
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
     expect_lock_ok(),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
 
@@ -48,6 +49,7 @@ run_skips_already_applied_test() ->
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
     expect_lock_ok(),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0001"]} end),
     meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
 
@@ -65,6 +67,7 @@ run_no_pending_migrations_test() ->
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
     expect_lock_ok(),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0001", "0002"]} end),
     meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
 
@@ -83,6 +86,7 @@ run_stops_on_first_failure_test() ->
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
     expect_lock_ok(),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, "0001", _Sql) -> ok;
                                                         (_Conn, "0002", _Sql) -> {error, syntax_error}
@@ -211,6 +215,7 @@ run_acquires_and_releases_lock_test() ->
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
     expect_lock_ok(),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
 
@@ -243,6 +248,7 @@ run_releases_lock_even_on_failure_test() ->
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
     expect_lock_ok(),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> {error, boom} end),
 
@@ -277,6 +283,7 @@ dry_run_lists_pending_without_applying_test() ->
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0001"]} end),
 
     Result = erl_data_shift_migrator:dry_run(#{}, Dir),
@@ -297,6 +304,7 @@ validate_all_pass_test() ->
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, validate_migration, fun(_Conn, _Sql) -> ok end),
 
@@ -313,6 +321,7 @@ validate_continues_past_failures_test() ->
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, validate_migration, fun
         (_Conn, "CREATE TABLE a(id int);") -> {error, table_exists};
@@ -331,6 +340,7 @@ validate_skips_already_applied_test() ->
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0001"]} end),
     meck:expect(erl_data_shift_db, validate_migration, fun(_Conn, _Sql) -> ok end),
 
@@ -345,6 +355,7 @@ validate_no_pending_test() ->
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
     meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
     meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0001", "0002"]} end),
 
     Result = erl_data_shift_migrator:validate(#{}, Dir),
@@ -439,5 +450,61 @@ verify_checksums_query_error_test() ->
     Result = erl_data_shift_migrator:verify_checksums(#{}, Dir),
 
     ?assertEqual({error, table_missing}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% -- run/3 refuses on checksum drift (mismatch), but proceeds on missing_local_file --
+
+run_blocks_on_checksum_mismatch_test() ->
+    Dir = setup(),
+    BadChecksum = erl_data_shift_migrations:compute_checksum("SOMETHING TOTALLY DIFFERENT;"),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) ->
+        {ok, [{"0001", BadChecksum}]}
+    end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
+
+    ?assertMatch({error, {checksum_drift, [{"0001", {mismatch, _, _}}]}}, Result),
+    ?assertEqual(0, meck:num_calls(erl_data_shift_db, apply_migration, '_')),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% A missing local file (for an applied migration) does NOT block the run —
+%% only content mismatches do.
+run_proceeds_when_only_missing_local_file_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) ->
+        {ok, [{"0099", "some_old_checksum_for_a_now_archived_file"}]}
+    end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, ["0099"]} end),
+    meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
+
+    ?assertEqual({ok, 2}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% Checksum lookup itself failing (e.g. query error) surfaces cleanly.
+run_checksum_check_query_error_test() ->
+    Dir = setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {error, table_missing} end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
+
+    ?assertEqual({error, table_missing}, Result),
+    ?assertEqual(0, meck:num_calls(erl_data_shift_db, apply_migration, '_')),
     meck:unload(erl_data_shift_db),
     teardown(Dir).

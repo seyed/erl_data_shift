@@ -9,7 +9,7 @@
     {"con_check", "Tests Postgres connectivity using your .env credentials."},
     {"stat", "Shows table names, row counts, and storage size, largest first."},
     {"history", "Shows applied migrations, with time-since-applied and local/DB drift check."},
-    {"migrate", "Runs all pending .sql files from ./migrations transactionally."},
+    {"migrate", "Runs all pending .sql files from ./migrations transactionally. Refuses if an already-applied migration was edited (checksum drift)."},
     {"migrate dry-run", "Lists pending migrations without applying them."},
     {"migrate down", "Rolls back the most recently applied migration."},
     {"migrate -f <path>", "Same as migrate, but points to a custom migrations directory."},
@@ -345,6 +345,13 @@ run_migrate(Dir) ->
                     {error, {migration_failed, File, Reason}} ->
                         io:format("\033[31m❌ Migration failed: ~ts~nReason: ~p~n\033[0m", [File, Reason]),
                         io:format("\033[33mStopped — earlier migrations in this run were committed, this one was rolled back.~n\033[0m");
+                    {error, {checksum_drift, Mismatches}} ->
+                        io:format("\033[31m❌ Refusing to migrate: the following already-applied migration(s) "
+                                  "have been edited since they ran:~n\033[0m"),
+                        lists:foreach(fun({Version, _}) ->
+                            io:format("  ~ts~n", [Version])
+                        end, Mismatches),
+                        io:format("Run 'eds verify' for details. Revert the edit or write a new migration instead.~n");
                     {error, Reason} ->
                         io:format("\033[31m❌ Migration run failed: ~p~n\033[0m", [Reason])
                 end

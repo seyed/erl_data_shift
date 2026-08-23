@@ -1037,3 +1037,23 @@ history_drift_check_no_version_column_test() ->
 
     meck:unload(erl_data_shift_db),
     meck:unload(erl_data_shift_env).
+
+%% -- migrate's new checksum_drift error branch --
+
+migrate_checksum_drift_blocks_test() ->
+    Dir = "/tmp/eds_app_migrate_drift_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    ok = file:write_file(filename:join(Dir, "0001_init.sql"), <<"-- sql">>),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {ok, []} end),
+    meck:expect(erl_data_shift_migrator, run, fun(_Env, _Dir, _ProgressFun) ->
+        {error, {checksum_drift, [{"0001", {mismatch, "abc", "def"}}]}}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
