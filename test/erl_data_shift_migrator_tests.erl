@@ -508,3 +508,57 @@ run_checksum_check_query_error_test() ->
     ?assertEqual(0, meck:num_calls(erl_data_shift_db, apply_migration, '_')),
     meck:unload(erl_data_shift_db),
     teardown(Dir).
+
+%% -- run/4 with force => true bypasses the checksum drift check --
+
+run_force_bypasses_checksum_drift_test() ->
+    Dir = setup(),
+    BadChecksum = erl_data_shift_migrations:compute_checksum("SOMETHING TOTALLY DIFFERENT;"),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    %% get_applied_checksums is intentionally NOT mocked here — if force
+    %% didn't actually skip the drift check, this test would fail with undef.
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
+    meck:expect(erl_data_shift_db, apply_migration, fun(_Conn, _Version, _Sql) -> ok end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end, #{force => true}),
+
+    ?assertEqual({ok, 2}, Result),
+    ?assertEqual(0, meck:num_calls(erl_data_shift_db, get_applied_checksums, '_')),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% run/3 (no Opts) is unaffected — still enforces the drift check by default.
+run_arity_3_still_enforces_drift_by_default_test() ->
+    Dir = setup(),
+    BadChecksum = erl_data_shift_migrations:compute_checksum("SOMETHING TOTALLY DIFFERENT;"),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, [{"0001", BadChecksum}]} end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
+
+    ?assertMatch({error, {checksum_drift, _}}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+%% run/4 with force => false behaves identically to run/3 (explicit opt-out
+%% of force, not a different code path).
+run_force_false_still_enforces_drift_test() ->
+    Dir = setup(),
+    BadChecksum = erl_data_shift_migrations:compute_checksum("SOMETHING TOTALLY DIFFERENT;"),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, [{"0001", BadChecksum}]} end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end, #{force => false}),
+
+    ?assertMatch({error, {checksum_drift, _}}, Result),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
