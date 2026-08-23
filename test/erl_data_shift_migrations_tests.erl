@@ -134,3 +134,10 @@ resolve_dir_preserves_tokens_on_both_sides_of_flag_test() ->
     {Dir, Rest} = erl_data_shift_migrations:resolve_dir(["down", "-f", "/tmp/x", "extra"]),
     ?assertEqual("/tmp/x", Dir),
     ?assertEqual(["down", "extra"], Rest).
+
+%% Regression: "force" (like "down"/"dry-run") must survive regardless of
+%% where -f appears in the arg list — same class of bug as the earlier fix.
+resolve_dir_preserves_force_token_test() ->
+    {Dir, Rest} = erl_data_shift_migrations:resolve_dir(["force", "-f", "/tmp/x"]),
+    ?assertEqual("/tmp/x", Dir),
+    ?assertEqual(["force"], Rest).

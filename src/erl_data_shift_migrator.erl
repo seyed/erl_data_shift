@@ -1,5 +1,5 @@
 -module(erl_data_shift_migrator).
--export([run/3, rollback_last/2, dry_run/2, validate/2, verify_checksums/2]).
+-export([run/3, run/4, rollback_last/2, dry_run/2, validate/2, verify_checksums/2]).
 
 -define(NO_APPLIED_MIGRATIONS, no_applied_migrations).
 -define(DOWN_FILE_MISSING, down_file_missing).
@@ -13,12 +13,21 @@
 -spec run(map(), file:filename(), fun((integer(), integer(), string()) -> any())) ->
     {ok, integer()} | {error, term()}.
 run(Env, Dir, ProgressFun) ->
+    run(Env, Dir, ProgressFun, #{force => false}).
+
+%% Same as run/3, but Opts may include force => true to bypass the checksum
+%% drift check (see check_drift/3) — an explicit, deliberate override for
+%% cases where drift is known and accepted, not a silent default.
+-spec run(map(), file:filename(), fun((integer(), integer(), string()) -> any()), map()) ->
+    {ok, integer()} | {error, term()}.
+run(Env, Dir, ProgressFun, Opts) ->
+    Force = maps:get(force, Opts, false),
     case erl_data_shift_migrations:list_sql_files(Dir) of
         {error, Reason} ->
             {error, Reason};
         {ok, Files} ->
             erl_data_shift_db:with_connection(Env, fun(Conn) ->
-                with_lock(Conn, fun() -> run_with_conn(Conn, Dir, Files, ProgressFun) end)
+                with_lock(Conn, fun() -> run_with_conn(Conn, Dir, Files, ProgressFun, Force) end)
             end)
     end.
 
@@ -180,12 +189,16 @@ find_up_file(Files, Version) ->
         [] -> not_found
     end.
 
-run_with_conn(Conn, Dir, Files, ProgressFun) ->
+run_with_conn(Conn, Dir, Files, ProgressFun, Force) ->
     case erl_data_shift_db:ensure_migrations_table(Conn) of
         {error, Reason} ->
             {error, Reason};
         ok ->
-            case check_drift(Conn, Dir, Files) of
+            DriftCheck = case Force of
+                true -> ok;
+                false -> check_drift(Conn, Dir, Files)
+            end,
+            case DriftCheck of
                 {error, Reason} ->
                     {error, Reason};
                 ok ->
