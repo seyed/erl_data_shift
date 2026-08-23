@@ -10,6 +10,7 @@
     {"stat", "Shows table names, row counts, and storage size, largest first."},
     {"history", "Shows applied migrations, with time-since-applied and local/DB drift check."},
     {"migrate", "Runs all pending .sql files from ./migrations transactionally. Refuses if an already-applied migration was edited (checksum drift)."},
+    {"migrate force", "Same as migrate, but bypasses the checksum drift check. Use deliberately, not by default."},
     {"migrate dry-run", "Lists pending migrations without applying them."},
     {"migrate down", "Rolls back the most recently applied migration."},
     {"migrate -f <path>", "Same as migrate, but points to a custom migrations directory."},
@@ -59,6 +60,7 @@ stop(_State) ->
 -define(BOOT_VERBS, ["foreground", "console", "start", "daemon"]).
 -define(DOWN_ARG, "down").
 -define(DRY_RUN_ARG, "dry-run").
+-define(FORCE_ARG, "force").
 
 dispatch([Verb | Rest]) ->
     case lists:member(Verb, ?BOOT_VERBS) of
@@ -248,10 +250,11 @@ con_check() ->
 
 migrate(Args) ->
     {Dir, RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
+    Force = lists:member(?FORCE_ARG, RemainingArgs),
     case {lists:member(?DOWN_ARG, RemainingArgs), lists:member(?DRY_RUN_ARG, RemainingArgs)} of
         {true, _} -> migrate_down(Dir);
         {false, true} -> migrate_dry_run(Dir);
-        {false, false} -> migrate_up(Dir)
+        {false, false} -> migrate_up(Dir, Force)
     end.
 
 migrate_dry_run(Dir) ->
@@ -277,7 +280,7 @@ migrate_dry_run(Dir) ->
             io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
 
-migrate_up(Dir) ->
+migrate_up(Dir, Force) ->
     case erl_data_shift_migrations:list_sql_files(Dir) of
         {error, {directory_not_found, Dir}} ->
             io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [Dir]),
@@ -285,7 +288,7 @@ migrate_up(Dir) ->
         {error, Reason} ->
             io:format("\033[31m❌ Could not list migrations: ~p~n\033[0m", [Reason]);
         {ok, _Files} ->
-            run_migrate(Dir)
+            run_migrate(Dir, Force)
     end.
 
 migrate_down(Dir) ->
@@ -316,13 +319,20 @@ migrate_down(Dir) ->
             io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
 
-run_migrate(Dir) ->
+run_migrate(Dir, Force) ->
     try
         case erl_data_shift_env:load() of
             {error, Reason} ->
                 io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason]);
             {ok, Env} ->
                 io:format("Migrations directory: ~ts~n", [Dir]),
+                case Force of
+                    true ->
+                        io:format("\033[33m⚠️  --force: skipping checksum drift check. "
+                                  "This bypasses an integrity safeguard — use only if you "
+                                  "understand and accept the drift.~n\033[0m");
+                    false -> ok
+                end,
                 %% Snapshot which files are pending before the run, purely for
                 %% accurate file-count/byte-size reporting in the benchmark
                 %% summary below — not used for correctness (run/3 does its
@@ -336,7 +346,11 @@ run_migrate(Dir) ->
                     io:format("[~B%] Applying ~ts (~B/~B)...~n", [Pct, File, Idx, Total])
                 end,
                 BenchState = erl_data_shift_bench:start(),
-                case erl_data_shift_migrator:run(Env, Dir, ProgressFun) of
+                RunResult = case Force of
+                    true -> erl_data_shift_migrator:run(Env, Dir, ProgressFun, #{force => true});
+                    false -> erl_data_shift_migrator:run(Env, Dir, ProgressFun)
+                end,
+                case RunResult of
                     {ok, 0} ->
                         io:format("\033[32m✅ No pending migrations — already up to date.~n\033[0m");
                     {ok, Count} ->
@@ -351,7 +365,7 @@ run_migrate(Dir) ->
                         lists:foreach(fun({Version, _}) ->
                             io:format("  ~ts~n", [Version])
                         end, Mismatches),
-                        io:format("Run 'eds verify' for details. Revert the edit or write a new migration instead.~n");
+                        io:format("Run 'eds verify' for details, or 'eds migrate force' to override.~n");
                     {error, Reason} ->
                         io:format("\033[31m❌ Migration run failed: ~p~n\033[0m", [Reason])
                 end
