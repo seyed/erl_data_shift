@@ -185,13 +185,35 @@ run_with_conn(Conn, Dir, Files, ProgressFun) ->
         {error, Reason} ->
             {error, Reason};
         ok ->
-            case erl_data_shift_db:get_applied_versions(Conn) of
+            case check_drift(Conn, Dir, Files) of
                 {error, Reason} ->
                     {error, Reason};
-                {ok, Applied} ->
-                    Pending = [F || F <- Files,
-                               not lists:member(erl_data_shift_migrations:extract_version(F), Applied)],
-                    apply_pending(Conn, Dir, Pending, length(Pending), 1, ProgressFun, 0)
+                ok ->
+                    case erl_data_shift_db:get_applied_versions(Conn) of
+                        {error, Reason} ->
+                            {error, Reason};
+                        {ok, Applied} ->
+                            Pending = [F || F <- Files,
+                                       not lists:member(erl_data_shift_migrations:extract_version(F), Applied)],
+                            apply_pending(Conn, Dir, Pending, length(Pending), 1, ProgressFun, 0)
+                    end
+            end
+    end.
+
+%% Refuses to apply new migrations if any already-applied one has been
+%% edited since it ran (checksum mismatch) — that's a real integrity
+%% problem worth stopping for. A missing local file is NOT blocking (could
+%% be legitimate, e.g. an old migration archived out of the repo).
+check_drift(Conn, Dir, Files) ->
+    case erl_data_shift_db:get_applied_checksums(Conn) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, Checksums} ->
+            Results = verify_each(Dir, Files, Checksums),
+            Mismatches = [R || {_Version, {mismatch, _, _}} = R <- Results],
+            case Mismatches of
+                [] -> ok;
+                _ -> {error, {checksum_drift, Mismatches}}
             end
     end.
 
