@@ -513,7 +513,6 @@ run_checksum_check_query_error_test() ->
 
 run_force_bypasses_checksum_drift_test() ->
     Dir = setup(),
-    BadChecksum = erl_data_shift_migrations:compute_checksum("SOMETHING TOTALLY DIFFERENT;"),
     meck:new(erl_data_shift_db, [non_strict]),
     meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
     expect_lock_ok(),
