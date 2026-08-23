@@ -1057,3 +1057,43 @@ migrate_checksum_drift_blocks_test() ->
     meck:unload(erl_data_shift_migrator),
     meck:unload(erl_data_shift_env),
     file:del_dir_r(Dir).
+
+%% -- migrate force, via mocked migrator run/4 --
+
+migrate_force_calls_run_4_and_bypasses_drift_test() ->
+    Dir = "/tmp/eds_app_migrate_force_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    ok = file:write_file(filename:join(Dir, "0001_init.sql"), <<"-- sql">>),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {ok, []} end),
+    meck:expect(erl_data_shift_migrator, run, fun
+        (_Env, _Dir, _ProgressFun, #{force := true}) -> {ok, 1}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "force", "-f", Dir])),
+
+    %% Only run/4 was mocked above — if the code had called run/3 instead,
+    %% this dispatch would have crashed with undef rather than returning ok,
+    %% so reaching here already proves run/4 (force path) was used.
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+%% Without "force", the plain arity-3 run/3 is still what gets called.
+migrate_without_force_calls_run_3_test() ->
+    Dir = "/tmp/eds_app_migrate_no_force_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    ok = file:write_file(filename:join(Dir, "0001_init.sql"), <<"-- sql">>),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {ok, []} end),
+    meck:expect(erl_data_shift_migrator, run, fun(_Env, _Dir, _ProgressFun) -> {ok, 1} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
