@@ -61,11 +61,14 @@ eds init          # scaffolds migrations/ and .env.example in the current direct
 | `con_check` | Tests Postgres connectivity using your `.env` credentials. |
 | `stat` | Shows table names, row counts, and storage size, largest first. |
 | `history` | Shows applied migrations — time-since-applied, who applied/reverted each, and local/DB drift check. |
-| `migrate` | Runs all pending `.sql` files from `./migrations` transactionally. |
+| `migrate` | Runs all pending `.sql` files from `./migrations` transactionally. Refuses if an already-applied migration was edited (checksum drift).|
+| `migrate force`| Same as migrate, but bypasses the checksum drift check. Use deliberately, not by default. | 
 | `migrate dry-run` | Lists pending migrations without applying them. |
 | `migrate down` | Rolls back the most recently applied migration. |
 | `migrate -f <path>` | Same as `migrate`, but points to a custom migrations directory. |
 | `new <name>` | Scaffolds a new numbered up+down migration file pair. |
+| `validate`| Test-runs pending migrations in a rolled-back transaction to catch errors early. | 
+| `verify`| Checks that applied migration files haven't been edited since they ran (checksum drift).| 
 | `init` | Scaffolds `migrations/` and `.env.example` in the current directory. |
 | `--version` | Prints the `eds` version. |
 | `--help` / `-h` | Shows this help message. |
