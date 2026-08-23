@@ -27,11 +27,11 @@ By using this Tool, you acknowledge that you have read, understood, and agreed t
 ## Security 
 
 <!-- CHECKSUMS-START -->
-### 🔒 Release v0.8.6-beta SHA256 Checksums
+### 🔒 Release v0.8.7 SHA256 Checksums
 
 ```
-0f8c873be3bd0f68c98738628386b59dcef7ed8a4b547e9ed7aa214910c02abd  eds-linux-x86_64
-cbb1c6e56457143fa384f78068e7632e2eae3b72c3effc73680d5c10dc90951e  eds-macos-arm64
+d24e8b4283282a47b06e06867ba8a0b255b65fe52c09dc6ea3946f75202e543b  eds-linux-x86_64
+fa6c68e22308223f3df47d26b814f7a96c57f2a78d86e94840365819c2fc1142  eds-macos-arm64
 ```
 <!-- CHECKSUMS-END -->
  For security issues, please contact: [seyed@swiftter.com] 
