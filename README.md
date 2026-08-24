@@ -24,6 +24,30 @@ By using this Tool, you acknowledge that you have read, understood, and agreed t
 1. Builds, runs, and verifies database schemas via simple commands. 
 2. Zero dependencies for the end-user. 
 
+## How eds compares to the heavy hitters
+ 
+_eds is new — these are established, widely-adopted tools. Here's an honest look at where eds fits and where it doesn't (yet)._
+ 
+**Where eds fits:** a small, dependency-free CLI for teams on Postgres who want Flyway-style safety (transactions, checksums, locking) without a JVM or a paid tier — not a fit if you need multi-database support or you're already deep in an Atlas/Flyway setup.
+ 
+| | **eds** | Flyway | golang-migrate | Atlas |
+|---|---|---|---|---|
+| Runtime dependency | ✅ (none — single binary, bundles ERTS) | ❌ (needs a JVM, or their CLI which bundles one) | ✅ (none — single Go binary) | ✅ (none — single Go binary) |
+| Database support | ❌ (PostgreSQL only) | ✅ (PostgreSQL, MySQL, Oracle, and more) | ✅ (many) | ✅ (many) |
+| Transactional migrations | ✅ (per-file) | ✅ | ⚠️ (driver-dependent) | ✅ |
+| Rollback | ✅ (`migrate down`, hand-written `.down.sql`) | ❌ (Teams/Enterprise tier only) | ✅ (hand-written down scripts) | ✅ (auto-computed reverse diff) |
+| Checksum drift detection | ✅ (blocks by default) | ✅ | ❌ | ✅ (via lint) |
+| Concurrency lock | ✅ (Postgres advisory lock) | ✅ | ⚠️ (driver-dependent) | ✅ |
+| Dry-run / preview | ✅ | ❌ (Enterprise only) | ❌ | ✅ (`migrate lint`) |
+| JSON output for CI | ✅ | ⚠️ (limited) | ❌ | ✅ |
+| Approx. binary/download size | ~40–60 MB* (bundles Erlang runtime) | ~100+ MB (bundles a JRE) | ~10–20 MB (native Go binary) | ~15–25 MB (native Go binary) |
+| License | MIT | Community free / Teams paid | MIT | Apache 2.0 (paid cloud features) |
+| Cost | ✅ (free, no paid tier — all features included) | ⚠️ (free core, but rollback/dry-run require paid Teams/Enterprise) | ✅ (free, no paid tier) | ⚠️ (free CLI, but advanced features gated behind paid Atlas Cloud) |
+| Maturity | ❌ (new) | ✅ (10+ years, widely adopted) | ✅ (10+ years, widely adopted) | ⚠️ (newer, growing fast) |
+ 
+\* Size figures are approximate and change between releases — check `ls -lh` on your own downloaded `eds` binary and each tool's latest release page for exact current numbers rather than relying on this table.
+  
+
 ## Security 
 
 <!-- CHECKSUMS-START -->
@@ -91,3 +115,4 @@ eds init          # scaffolds migrations/ and .env.example in the current direct
 | ✅ erl_data_shift_scaffold | 82% |
 | ✅ erl_data_shift_init | 80% |
 <!-- COVERAGE-END -->
+

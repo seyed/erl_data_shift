@@ -7,25 +7,30 @@
 %% Registry mapping subcommand name -> handler fun/0. Add new commands here.
 -define(HELP_ENTRIES, [
     {"con_check", "Tests Postgres connectivity using your .env credentials."},
+    {"con_check json", "Same as con_check, output as JSON (for CI/tooling)."},
     {"stat", "Shows table names, row counts, and storage size, largest first."},
+    {"stat json", "Same as stat, output as JSON."},
     {"history", "Shows applied migrations, with time-since-applied and local/DB drift check."},
     {"migrate", "Runs all pending .sql files from ./migrations transactionally. Refuses if an already-applied migration was edited (checksum drift)."},
     {"migrate force", "Same as migrate, but bypasses the checksum drift check. Use deliberately, not by default."},
     {"migrate dry-run", "Lists pending migrations without applying them."},
+    {"migrate dry-run json", "Same as migrate dry-run, output as JSON."},
     {"migrate down", "Rolls back the most recently applied migration."},
     {"migrate -f <path>", "Same as migrate, but points to a custom migrations directory."},
     {"new <name>", "Scaffolds a new numbered up+down migration file pair."},
     {"validate", "Test-runs pending migrations in a rolled-back transaction to catch errors early."},
+    {"validate json", "Same as validate, output as JSON."},
     {"verify", "Checks that applied migration files haven't been edited since they ran (checksum drift)."},
+    {"verify json", "Same as verify, output as JSON."},
     {"init", "Scaffolds migrations/ and .env.example in the current directory."},
     {"--version", "Prints the eds version."},
     {"--help / -h", "Shows this help message."}
 ]).
 
 -define(COMMANDS, #{
-    "con_check" => fun(_Args) -> con_check() end,
+    "con_check" => fun con_check/1,
     "migrate"   => fun migrate/1,
-    "stat"      => fun(_Args) -> stat() end,
+    "stat"      => fun stat/1,
     "history"   => fun(_Args) -> history() end,
     "init"      => fun(_Args) -> init_cmd() end,
     "new"       => fun new_cmd/1,
@@ -61,6 +66,7 @@ stop(_State) ->
 -define(DOWN_ARG, "down").
 -define(DRY_RUN_ARG, "dry-run").
 -define(FORCE_ARG, "force").
+-define(JSON_ARG, "json").
 
 dispatch([Verb | Rest]) ->
     case lists:member(Verb, ?BOOT_VERBS) of
@@ -113,27 +119,45 @@ new_cmd([Name | _Rest]) ->
     end.
 
 validate_cmd(Args) ->
-    {Dir, _RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
+    {Dir, RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
+    Json = lists:member(?JSON_ARG, RemainingArgs),
     try
         case erl_data_shift_env:load() of
+            {error, Reason} when Json ->
+                print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary(Reason)});
             {error, Reason} ->
                 io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason]);
             {ok, Env} ->
                 case erl_data_shift_migrator:validate(Env, Dir) of
+                    {ok, Results} when Json ->
+                        print_validate_results_json(Results);
                     {ok, []} ->
                         io:format("\033[32m✅ No pending migrations to validate.~n\033[0m");
                     {ok, Results} ->
                         print_validate_results(Results);
+                    {error, {directory_not_found, D}} when Json ->
+                        print_json(#{<<"status">> => <<"error">>, <<"reason">> => <<"directory_not_found">>, <<"directory">> => list_to_binary(D)});
                     {error, {directory_not_found, Dir}} ->
                         io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [Dir]);
+                    {error, Reason} when Json ->
+                        print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary(Reason)});
                     {error, Reason} ->
                         io:format("\033[31m❌ Could not validate migrations: ~p~n\033[0m", [Reason])
                 end
         end
     catch
+        Class:Err when Json ->
+            print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary({Class, Err})});
         Class:Err ->
             io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
+
+print_validate_results_json(Results) ->
+    Items = [case R of
+        {File, ok} -> #{<<"file">> => list_to_binary(File), <<"status">> => <<"ok">>};
+        {File, {error, Reason}} -> #{<<"file">> => list_to_binary(File), <<"status">> => <<"error">>, <<"reason">> => reason_to_binary(Reason)}
+    end || R <- Results],
+    print_json(#{<<"results">> => Items}).
 
 print_validate_results(Results) ->
     lists:foreach(fun({File, Result}) ->
@@ -149,27 +173,50 @@ print_validate_results(Results) ->
     end.
 
 verify_cmd(Args) ->
-    {Dir, _RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
+    {Dir, RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
+    Json = lists:member(?JSON_ARG, RemainingArgs),
     try
         case erl_data_shift_env:load() of
+            {error, Reason} when Json ->
+                print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary(Reason)});
             {error, Reason} ->
                 io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason]);
             {ok, Env} ->
                 case erl_data_shift_migrator:verify_checksums(Env, Dir) of
+                    {ok, Results} when Json ->
+                        print_verify_results_json(Results);
                     {ok, []} ->
                         io:format("\033[32m✅ No checksummed migrations to verify.~n\033[0m");
                     {ok, Results} ->
                         print_verify_results(Results);
+                    {error, {directory_not_found, D}} when Json ->
+                        print_json(#{<<"status">> => <<"error">>, <<"reason">> => <<"directory_not_found">>, <<"directory">> => list_to_binary(D)});
                     {error, {directory_not_found, Dir}} ->
                         io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [Dir]);
+                    {error, Reason} when Json ->
+                        print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary(Reason)});
                     {error, Reason} ->
                         io:format("\033[31m❌ Could not verify checksums: ~p~n\033[0m", [Reason])
                 end
         end
     catch
+        Class:Err when Json ->
+            print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary({Class, Err})});
         Class:Err ->
             io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
+
+print_verify_results_json(Results) ->
+    Items = [case R of
+        {Version, ok} ->
+            #{<<"version">> => list_to_binary(Version), <<"status">> => <<"ok">>};
+        {Version, missing_local_file} ->
+            #{<<"version">> => list_to_binary(Version), <<"status">> => <<"missing_local_file">>};
+        {Version, {mismatch, Stored, Local}} ->
+            #{<<"version">> => list_to_binary(Version), <<"status">> => <<"mismatch">>,
+              <<"stored_checksum">> => list_to_binary(Stored), <<"local_checksum">> => list_to_binary(Local)}
+    end || R <- Results],
+    print_json(#{<<"results">> => Items}).
 
 print_verify_results(Results) ->
     lists:foreach(fun({Version, Status}) ->
@@ -217,65 +264,98 @@ print_caution() ->
     ],
     InnerWidth = lists:max([length(L) || L <- Lines]),
     Border = "+" ++ lists:duplicate(InnerWidth + 2, $-) ++ "+",
-    io:format("\033[33m~ts~n", [Border]),
+    io:format(standard_error, "\033[33m~ts~n", [Border]),
     lists:foreach(fun(L) ->
-        io:format("| ~ts |~n", [pad(L, InnerWidth)])
+        io:format(standard_error, "| ~ts |~n", [pad(L, InnerWidth)])
     end, Lines),
-    io:format("~ts~n\033[0m", [Border]).
+    io:format(standard_error, "~ts~n\033[0m", [Border]).
 
 pad(Text, Width) ->
     Text ++ lists:duplicate(Width - length(Text), $\s).
 
 %% -- commands --
 
-con_check() ->
+con_check(Args) ->
+    Json = lists:member(?JSON_ARG, Args),
     try
         case erl_data_shift_env:load() of
             {ok, Env} ->
                 case erl_data_shift_db:check_connection(Env) of
+                    {ok, connected} when Json ->
+                        print_json(#{<<"status">> => <<"connected">>});
                     {ok, connected} ->
                         io:format("\033[32m✅ Connected to Postgres.~n\033[0m");
+                    {error, Reason} when Json ->
+                        print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary(Reason)});
                     {error, Reason} ->
                         io:format("\033[31m❌ Postgres is not reachable with the following .env values:~n\033[0m"),
                         print_env_summary(Env),
                         io:format("\033[31mReason: ~p~n\033[0m", [Reason])
                 end;
+            {error, Reason} when Json ->
+                print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary(Reason)});
             {error, Reason} ->
                 io:format("\033[31m❌ Could not read .env: ~p (create one with PG_HOST, PG_PORT, PG_USER, PG_PASSWORD, PG_DATABASE)~n\033[0m", [Reason])
         end
     catch
+        Class:Err when Json ->
+            print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary({Class, Err})});
         Class:Err ->
             io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
+
+%% Prints a JSON blob to stdout (pure — no ANSI, no decoration — so CI tools
+%% can pipe and parse it directly). Human-readable diagnostics like
+%% print_caution/0 go to stderr instead, keeping stdout clean either way.
+print_json(Map) ->
+    io:format("~ts~n", [erl_data_shift_json:encode(Map)]).
+
+%% Converts an arbitrary (possibly opaque) error reason term into a binary
+%% string for JSON output — reasons can be any Erlang term, not natively
+%% JSON-safe, so this is a deliberate, explicit stringification rather than
+%% a generic auto-sanitizer.
+reason_to_binary(Reason) ->
+    iolist_to_binary(io_lib:format("~p", [Reason])).
 
 migrate(Args) ->
     {Dir, RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
     Force = lists:member(?FORCE_ARG, RemainingArgs),
     case {lists:member(?DOWN_ARG, RemainingArgs), lists:member(?DRY_RUN_ARG, RemainingArgs)} of
         {true, _} -> migrate_down(Dir);
-        {false, true} -> migrate_dry_run(Dir);
+        {false, true} -> migrate_dry_run(Dir, RemainingArgs);
         {false, false} -> migrate_up(Dir, Force)
     end.
 
-migrate_dry_run(Dir) ->
+migrate_dry_run(Dir, RemainingArgs) ->
+    Json = lists:member(?JSON_ARG, RemainingArgs),
     try
         case erl_data_shift_env:load() of
+            {error, Reason} when Json ->
+                print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary(Reason)});
             {error, Reason} ->
                 io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason]);
             {ok, Env} ->
                 case erl_data_shift_migrator:dry_run(Env, Dir) of
+                    {ok, Files} when Json ->
+                        print_json(#{<<"pending">> => [list_to_binary(F) || F <- Files]});
                     {ok, []} ->
                         io:format("\033[32m✅ No pending migrations — already up to date.~n\033[0m");
                     {ok, Files} ->
                         io:format("Pending migrations (~B):~n", [length(Files)]),
                         lists:foreach(fun(F) -> io:format("  ~ts~n", [F]) end, Files);
+                    {error, {directory_not_found, D}} when Json ->
+                        print_json(#{<<"status">> => <<"error">>, <<"reason">> => <<"directory_not_found">>, <<"directory">> => list_to_binary(D)});
                     {error, {directory_not_found, Dir}} ->
                         io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [Dir]);
+                    {error, Reason} when Json ->
+                        print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary(Reason)});
                     {error, Reason} ->
                         io:format("\033[31m❌ Could not list pending migrations: ~p~n\033[0m", [Reason])
                 end
         end
     catch
+        Class:Err when Json ->
+            print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary({Class, Err})});
         Class:Err ->
             io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
@@ -396,24 +476,37 @@ print_bench_summary(FileCount, TotalBytes, #{wall_ms := WallMs, cpu_ms := CpuMs,
     io:format("Erlang VM CPU time: ~B ms | VM memory delta: ~ts~ts~n",
                [CpuMs, MemSign, human_size(abs(MemDelta))]).
 
-stat() ->
+stat(Args) ->
+    Json = lists:member(?JSON_ARG, Args),
     try
         case erl_data_shift_env:load() of
             {ok, Env} ->
                 case erl_data_shift_db:get_table_stats(Env) of
+                    {ok, Rows} when Json -> print_stats_json(Rows);
                     {ok, Rows} -> print_stats(Rows);
+                    {error, Reason} when Json ->
+                        print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary(Reason)});
                     {error, Reason} ->
                         io:format("\033[31m❌ Could not fetch stats:~n\033[0m"),
                         print_env_summary(Env),
                         io:format("\033[31mReason: ~p~n\033[0m", [Reason])
                 end;
+            {error, Reason} when Json ->
+                print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary(Reason)});
             {error, Reason} ->
                 io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason])
         end
     catch
+        Class:Err when Json ->
+            print_json(#{<<"status">> => <<"error">>, <<"reason">> => reason_to_binary({Class, Err})});
         Class:Err ->
             io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
+
+print_stats_json(Rows) ->
+    Tables = [#{<<"name">> => Name, <<"rows">> => RowCount, <<"size_bytes">> => Bytes}
+              || #{name := Name, rows := RowCount, size_bytes := Bytes} <- Rows],
+    print_json(#{<<"tables">> => Tables}).
 
 print_stats([]) ->
     io:format("No tables found.~n");

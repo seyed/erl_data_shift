@@ -1097,3 +1097,140 @@ migrate_without_force_calls_run_3_test() ->
     meck:unload(erl_data_shift_migrator),
     meck:unload(erl_data_shift_env),
     file:del_dir_r(Dir).
+
+%% -- con_check json mode --
+
+con_check_json_success_test() ->
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, check_connection, fun(_Env) -> {ok, connected} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["con_check", "json"])),
+
+    meck:unload(erl_data_shift_db),
+    meck:unload(erl_data_shift_env).
+
+con_check_json_connection_failure_test() ->
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, check_connection, fun(_Env) -> {error, econnrefused} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["con_check", "json"])),
+
+    meck:unload(erl_data_shift_db),
+    meck:unload(erl_data_shift_env).
+
+con_check_json_env_load_failure_test() ->
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["con_check", "json"])).
+
+con_check_json_unexpected_error_test() ->
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> error(deliberate_test_crash) end),
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["con_check", "json"])),
+    meck:unload(erl_data_shift_env).
+
+%% -- stat json mode --
+
+stat_json_success_test() ->
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, get_table_stats, fun(_Env) ->
+        {ok, [#{name => <<"users">>, rows => 10, size_bytes => 2048}]}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["stat", "json"])),
+
+    meck:unload(erl_data_shift_db),
+    meck:unload(erl_data_shift_env).
+
+stat_json_failure_test() ->
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, get_table_stats, fun(_Env) -> {error, timeout} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["stat", "json"])),
+
+    meck:unload(erl_data_shift_db),
+    meck:unload(erl_data_shift_env).
+
+%% -- validate json mode --
+
+validate_json_with_results_test() ->
+    Dir = "/tmp/eds_app_validate_json_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, validate, fun(_Env, _Dir) ->
+        {ok, [{"0001_init.sql", ok}, {"0002_bad.sql", {error, syntax_error}}]}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["validate", "json", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+validate_json_directory_not_found_test() ->
+    Dir = "/tmp/eds_no_such_validate_json_dir",
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, validate, fun(_Env, D) -> {error, {directory_not_found, D}} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["validate", "json", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env).
+
+%% -- verify json mode --
+
+verify_json_with_results_test() ->
+    Dir = "/tmp/eds_app_verify_json_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, verify_checksums, fun(_Env, _Dir) ->
+        {ok, [{"0001", ok}, {"0002", {mismatch, "abc", "def"}}, {"0003", missing_local_file}]}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["verify", "json", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+%% -- migrate dry-run json mode --
+
+migrate_dry_run_json_with_pending_test() ->
+    Dir = "/tmp/eds_app_dry_run_json_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {ok, ["0001_init.sql"]} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "dry-run", "json", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+migrate_dry_run_json_no_pending_test() ->
+    Dir = "/tmp/eds_app_dry_run_json_empty_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, _Dir) -> {ok, []} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "dry-run", "json", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
