@@ -1,4 +1,18 @@
-# erl_data_shift (アールデータシフト)
+```
+▓█████ ▓█████▄   ██████ 
+▓█   ▀ ▒██▀ ██▌▒██    ▒ 
+▒███   ░██   █▌░ ▓██▄   
+▒▓█  ▄ ░▓█▄   ▌  ▒   ██▒
+░▒████▒░▒████▓ ▒██████▒▒
+░░ ▒░ ░ ▒▒▓  ▒ ▒ ▒▓▒ ▒ ░
+ ░ ░  ░ ░ ▒  ▒ ░ ░▒  ░ ░
+   ░    ░ ░  ░ ░  ░  ░  
+   ░  ░   ░          ░  
+        ░               
+```
+**erl_data_shift** — a standalone Postgres migration CLI
+
+🇬🇧 English | [🇯🇵 日本語](README.ja.md) | [🇨🇳 中文](README.zh.md) | [🇮🇱 עברית](README.he.md) | [🇸🇦 العربية](README.ar.md)
 
 --- 
 ## ⚠️ Disclaimer
