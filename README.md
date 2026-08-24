@@ -17,19 +17,31 @@
 By using this Tool, you acknowledge that you have read, understood, and agreed to these terms. If you do not agree, do not use this software.
 
 --- 
-## 🎯 **Aim and Goals**
-**Aim**. Cross-platform CLI for PostgreSQL migrations. 
-
-**Goals** 
-1. Builds, runs, and verifies database schemas via simple commands. 
-2. Zero dependencies for the end-user. 
-
+## 🎯 Aim and Goals
+ 
+**Aim.** A cross-platform CLI for PostgreSQL migrations.
+ 
+**Goals**
+ 
+1. Build, run, and verify database schema changes via simple commands.
+2. Zero dependencies for the end user.
+ 
 ## How eds compares to the heavy hitters
- 
+
 _eds is new — these are established, widely-adopted tools. Here's an honest look at where eds fits and where it doesn't (yet)._
- 
+
 **Where eds fits:** a small, dependency-free CLI for teams on Postgres who want Flyway-style safety (transactions, checksums, locking) without a JVM or a paid tier — not a fit if you need multi-database support or you're already deep in an Atlas/Flyway setup.
- 
+
+### Cost, data, and licensing
+
+| | **eds** | Flyway | golang-migrate | Atlas |
+|---|---|---|---|---|
+| Cost | ✅ (free, no paid tier — all features included) | ⚠️ (free core, but rollback/dry-run require paid Teams/Enterprise) | ✅ (free, no paid tier) | ⚠️ (free CLI, but advanced features gated behind paid Atlas Cloud) |
+| Usage data collection | ✅ (none — eds sends nothing anywhere) | ⚠️ (telemetry on by default, opt-out via env var — [Redgate docs](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)) | ✅ (no telemetry found in their docs/repo) | ⚠️ (telemetry on by default — commands run, OS, hostname — opt-out via env var — [Atlas's own privacy docs](https://atlasgo.io/cli/data-privacy)) |
+| License | MIT | Community free / Teams paid | MIT | Apache 2.0 (paid cloud features) |
+
+### Features and maturity
+
 | | **eds** | Flyway | golang-migrate | Atlas |
 |---|---|---|---|---|
 | Runtime dependency | ✅ (none — single binary, bundles ERTS) | ❌ (needs a JVM, or their CLI which bundles one) | ✅ (none — single Go binary) | ✅ (none — single Go binary) |
@@ -41,12 +53,9 @@ _eds is new — these are established, widely-adopted tools. Here's an honest lo
 | Dry-run / preview | ✅ | ❌ (Enterprise only) | ❌ | ✅ (`migrate lint`) |
 | JSON output for CI | ✅ | ⚠️ (limited) | ❌ | ✅ |
 | Approx. binary/download size | ~40–60 MB* (bundles Erlang runtime) | ~100+ MB (bundles a JRE) | ~10–20 MB (native Go binary) | ~15–25 MB (native Go binary) |
-| License | MIT | Community free / Teams paid | MIT | Apache 2.0 (paid cloud features) |
-| Cost | ✅ (free, no paid tier — all features included) | ⚠️ (free core, but rollback/dry-run require paid Teams/Enterprise) | ✅ (free, no paid tier) | ⚠️ (free CLI, but advanced features gated behind paid Atlas Cloud) |
 | Maturity | ❌ (new) | ✅ (10+ years, widely adopted) | ✅ (10+ years, widely adopted) | ⚠️ (newer, growing fast) |
- 
-\* Size figures are approximate and change between releases — check `ls -lh` on your own downloaded `eds` binary and each tool's latest release page for exact current numbers rather than relying on this table.
-  
+
+\* Size figures are approximate and change between releases — check `ls -lh` on your own downloaded `eds` binary and each tool's latest release page for exact current numbers rather than relying on this table.  
 
 ## Security 
 
