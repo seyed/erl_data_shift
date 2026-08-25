@@ -11,3 +11,11 @@
         ░   
 ```
 
+
+<!-- COVERAGE-START -->
+<!-- COVERAGE-END -->
+
+
+<!-- CHECKSUMS-START -->
+<!-- CHECKSUMS-END -->
+
