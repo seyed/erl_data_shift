@@ -47,7 +47,7 @@ jobs:
           import re, os
 
           # GITHUB_REPOSITORY is always auto-provided as "owner/repo" — more
-          # reliable than building the URL via ${{ }} expression interpolation
+          # reliable than building the URL via the env: block's expression interpolation
           # in the env: block, which was evaluating empty for unclear reasons.
           repo = os.environ.get("GITHUB_REPOSITORY", "")
           owner, _, name = repo.partition("/")
