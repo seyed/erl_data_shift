@@ -74,11 +74,11 @@ _eds is new — these are established, widely-adopted tools. Here's an honest lo
 ## Security 
 
 <!-- CHECKSUMS-START -->
-### 🔒 Release v0.8.7 SHA256 Checksums
+### 🔒 Release v0.8.8 SHA256 Checksums
 
 ```
-d24e8b4283282a47b06e06867ba8a0b255b65fe52c09dc6ea3946f75202e543b  eds-linux-x86_64
-fa6c68e22308223f3df47d26b814f7a96c57f2a78d86e94840365819c2fc1142  eds-macos-arm64
+14c94b1a1a1c94e8c5cb761a7d882eec38047ab11ad8fce453dcfd8fff31add5  eds-linux-x86_64
+051b802c9a669bba9917984fc7748477a27ce1e6c2cc082d3ccf847d409a3e4f  eds-macos-arm64
 ```
 <!-- CHECKSUMS-END -->
  For security issues, please contact: [seyed@swiftter.com] 
