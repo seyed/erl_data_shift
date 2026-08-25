@@ -42,13 +42,16 @@ jobs:
       # avoids fighting over a shared coverage number across branches.
       - name: Update README coverage section
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        env:
-          PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
         run: |
           python3 - <<'PYEOF'
           import re, os
 
-          pages_url = os.environ["PAGES_URL"]
+          # GITHUB_REPOSITORY is always auto-provided as "owner/repo" — more
+          # reliable than building the URL via ${{ }} expression interpolation
+          # in the env: block, which was evaluating empty for unclear reasons.
+          repo = os.environ.get("GITHUB_REPOSITORY", "")
+          owner, _, name = repo.partition("/")
+          pages_url = f"https://{owner}.github.io/{name}/"
           with open("cover_output.txt") as f:
               lines = f.readlines()
 
@@ -82,18 +85,25 @@ jobs:
           lines_out.append("<!-- COVERAGE-END -->")
           new_block = "\n".join(lines_out)
 
-          with open("README.md") as f:
-              content = f.read()
-          content = re.sub(
-              r"<!-- COVERAGE-START -->.*?<!-- COVERAGE-END -->",
-              new_block, content, flags=re.DOTALL
-          )
-          with open("README.md", "w") as f:
-              f.write(content)
+          # Apply to every README variant that exists (English + any
+          # translations) so coverage stays in sync across all of them.
+          import os
+          readme_files = [f for f in
+                          ["README.md", "README.ja.md", "README.zh.md", "README.he.md", "README.ar.md"]
+                          if os.path.exists(f)]
+          for readme_file in readme_files:
+              with open(readme_file) as f:
+                  content = f.read()
+              content = re.sub(
+                  r"<!-- COVERAGE-START -->.*?<!-- COVERAGE-END -->",
+                  new_block, content, flags=re.DOTALL
+              )
+              with open(readme_file, "w") as f:
+                  f.write(content)
           PYEOF
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md
+          git add README.md README.ja.md README.zh.md README.he.md README.ar.md 2>/dev/null || true
           git diff --cached --quiet || git commit -m "docs: update coverage badge [skip ci]"
           git push
 
@@ -216,19 +226,26 @@ jobs:
           done
           BLOCK="${BLOCK}\`\`\`\n<!-- CHECKSUMS-END -->"
           python3 - "$BLOCK" <<'PYEOF'
-          import re, sys
+          import re, sys, os
           block = sys.argv[1]
-          with open("README.md") as f:
-              content = f.read()
-          content = re.sub(
-              r"<!-- CHECKSUMS-START -->.*?<!-- CHECKSUMS-END -->",
-              block, content, flags=re.DOTALL
-          )
-          with open("README.md", "w") as f:
-              f.write(content)
+
+          # Apply to every README variant that exists (English + any
+          # translations) so checksums stay in sync across all of them.
+          readme_files = [f for f in
+                          ["README.md", "README.ja.md", "README.zh.md", "README.he.md", "README.ar.md"]
+                          if os.path.exists(f)]
+          for readme_file in readme_files:
+              with open(readme_file) as f:
+                  content = f.read()
+              content = re.sub(
+                  r"<!-- CHECKSUMS-START -->.*?<!-- CHECKSUMS-END -->",
+                  block, content, flags=re.DOTALL
+              )
+              with open(readme_file, "w") as f:
+                  f.write(content)
           PYEOF
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md
+          git add README.md README.ja.md README.zh.md README.he.md README.ar.md 2>/dev/null || true
           git diff --cached --quiet || git commit -m "docs: update checksums for ${TAG} [skip ci]"
           git push origin HEAD:main
