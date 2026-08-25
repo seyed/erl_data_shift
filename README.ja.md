@@ -12,11 +12,11 @@
 ```
 
 <!-- COVERAGE-START -->
-### 🧪 Test Coverage — Overall: 92%
+### 🧪 テストカバレッジ — 合計: 92%
 
-[📊 View interactive line-by-line coverage report](https://seyed.github.io/erl_data_shift/)
+[📊 インタラクティブなカバレッジレポートを見る](https://seyed.github.io/erl_data_shift/)
 
-| Module | Coverage |
+| モジュール | カバレッジ |
 |---|---|
 | ✅ erl_data_shift_bench | 100% |
 | ✅ erl_data_shift_json | 100% |
