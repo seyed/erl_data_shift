@@ -13,11 +13,11 @@
 
 
 <!-- COVERAGE-START -->
-### 🧪 Test Coverage — Overall: 92%
+### 🧪 测试覆盖率 — 总计: 92%
 
-[📊 View interactive line-by-line coverage report](https://seyed.github.io/erl_data_shift/)
+[📊 查看交互式逐行覆盖率报告](https://seyed.github.io/erl_data_shift/)
 
-| Module | Coverage |
+| 模块 | 覆盖率 |
 |---|---|
 | ✅ erl_data_shift_bench | 100% |
 | ✅ erl_data_shift_json | 100% |
