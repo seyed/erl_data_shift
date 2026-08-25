@@ -156,8 +156,19 @@ jobs:
           PYEOF
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md README.ja.md README.zh.md README.he.md README.ar.md 2>/dev/null || true
-          git diff --cached --quiet || git commit -m "docs: update coverage badge [skip ci]"
+          declare -A commit_titles=(
+            ["README.md"]="docs: update coverage badge [skip ci]"
+            ["README.ja.md"]="ドキュメント: カバレッジバッジを更新 [skip ci]"
+            ["README.zh.md"]="文档：更新覆盖率徽章 [skip ci]"
+            ["README.he.md"]="תיעוד: עדכון תג כיסוי הבדיקות [skip ci]"
+            ["README.ar.md"]="التوثيق: تحديث شارة التغطية [skip ci]"
+          )
+          for f in "README.md" "README.ja.md" "README.zh.md" "README.he.md" "README.ar.md"; do
+            if [ -f "$f" ]; then
+              git add "$f"
+              git diff --cached --quiet -- "$f" || git commit -m "${commit_titles[$f]}"
+            fi
+          done
           git push
 
   # Deploys the coverage HTML report uploaded above to GitHub Pages.
@@ -185,6 +196,8 @@ jobs:
             artifact_name: eds-linux-x86_64
           - os: macos-latest
             artifact_name: eds-macos-arm64
+          - os: windows-latest
+            artifact_name: eds-windows-x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -199,7 +212,8 @@ jobs:
       - name: Build prod release
         run: rebar3 as prod release
 
-      - name: Package self-extracting single-file binary
+      - name: Package self-extracting single-file binary (macOS/Linux)
+        if: matrix.os != 'windows-latest'
         run: |
           VERSION=$(grep -o '{release, {erl_data_shift, "[^"]*"' rebar.config | sed 's/.*"\(.*\)"/\1/')
           OUT_FILE="_build/prod/bin/${{ matrix.artifact_name }}"
@@ -234,10 +248,27 @@ jobs:
           chmod +x "$OUT_FILE"
           rm -f "$TARBALL"
 
-      - name: Compute checksum
+      # Windows has no bash self-extracting-stub equivalent, so this ships
+      # as a .zip instead (standard for Windows CLI tools). See
+      # scripts/release/build_windows.ps1 for the shared packaging logic.
+      - name: Package release (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./scripts/release/build_windows.ps1
+
+      - name: Compute checksum (macOS/Linux)
+        if: matrix.os != 'windows-latest'
         run: |
           mkdir -p checksums
           shasum -a 256 "_build/prod/bin/${{ matrix.artifact_name }}" | awk '{print $1}' > "checksums/${{ matrix.artifact_name }}.sha256"
+
+      - name: Compute checksum (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path checksums | Out-Null
+          $hash = (Get-FileHash "_build/prod/bin/${{ matrix.artifact_name }}.zip" -Algorithm SHA256).Hash.ToLower()
+          Set-Content -Path "checksums/${{ matrix.artifact_name }}.sha256" -Value $hash -NoNewline
 
       - name: Upload checksum artifact
         uses: actions/upload-artifact@v4
@@ -245,10 +276,18 @@ jobs:
           name: checksum-${{ matrix.artifact_name }}
           path: checksums/${{ matrix.artifact_name }}.sha256
 
-      - name: Upload to GitHub Release
+      - name: Upload to GitHub Release (macOS/Linux)
+        if: matrix.os != 'windows-latest'
         uses: softprops/action-gh-release@v2
         with:
           files: _build/prod/bin/${{ matrix.artifact_name }}
+          overwrite: true
+
+      - name: Upload to GitHub Release (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: _build/prod/bin/${{ matrix.artifact_name }}.zip
           overwrite: true
 
   # Runs once after both release legs finish: aggregates checksums from
@@ -299,6 +338,17 @@ jobs:
           PYEOF
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md README.ja.md README.zh.md README.he.md README.ar.md 2>/dev/null || true
-          git diff --cached --quiet || git commit -m "docs: update checksums for ${TAG} [skip ci]"
+          declare -A commit_titles=(
+            ["README.md"]="docs: update checksums for ${TAG} [skip ci]"
+            ["README.ja.md"]="ドキュメント: ${TAG} のチェックサムを更新 [skip ci]"
+            ["README.zh.md"]="文档：更新 ${TAG} 的校验和 [skip ci]"
+            ["README.he.md"]="תיעוד: עדכון סכומי ביקורת עבור ${TAG} [skip ci]"
+            ["README.ar.md"]="التوثيق: تحديث المجاميع الاختبارية لـ ${TAG} [skip ci]"
+          )
+          for f in "README.md" "README.ja.md" "README.zh.md" "README.he.md" "README.ar.md"; do
+            if [ -f "$f" ]; then
+              git add "$f"
+              git diff --cached --quiet -- "$f" || git commit -m "${commit_titles[$f]}"
+            fi
+          done
           git push origin HEAD:main
