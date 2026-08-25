@@ -128,15 +128,28 @@ jobs:
               if pct >= 50: return "⚠️"
               return "❌"
 
-          lines_out = ["<!-- COVERAGE-START -->"]
-          lines_out.append(f"### 🧪 Test Coverage — Overall: {total if total is not None else '?'}%\n")
-          lines_out.append("[📊 View interactive line-by-line coverage report](" + pages_url + ")\n")
-          lines_out.append("| Module | Coverage |")
-          lines_out.append("|---|---|")
-          for name, pct in sorted(rows, key=lambda r: -r[1]):
-              lines_out.append(f"| {icon(pct)} {name} | {pct}% |")
-          lines_out.append("<!-- COVERAGE-END -->")
-          new_block = "\n".join(lines_out)
+          # Best-effort translations of the coverage block's headings — not
+          # reviewed by native speakers, worth a sanity check before relying
+          # on them for anything customer-facing.
+          i18n = {
+              "README.md":    {"heading": "Test Coverage", "overall": "Overall", "link": "View interactive line-by-line coverage report", "module": "Module", "coverage": "Coverage"},
+              "README.ja.md": {"heading": "テストカバレッジ", "overall": "合計", "link": "インタラクティブなカバレッジレポートを見る", "module": "モジュール", "coverage": "カバレッジ"},
+              "README.zh.md": {"heading": "测试覆盖率", "overall": "总计", "link": "查看交互式逐行覆盖率报告", "module": "模块", "coverage": "覆盖率"},
+              "README.he.md": {"heading": "כיסוי בדיקות", "overall": "סה\"כ", "link": "צפה בדוח כיסוי אינטראקטיבי", "module": "מודול", "coverage": "כיסוי"},
+              "README.ar.md": {"heading": "تغطية الاختبار", "overall": "الإجمالي", "link": "عرض تقرير التغطية التفاعلي", "module": "الوحدة", "coverage": "التغطية"},
+          }
+
+          def build_block(labels):
+              pct_str = str(total) if total is not None else "?"
+              lines_out = ["<!-- COVERAGE-START -->"]
+              lines_out.append(f"### 🧪 {labels['heading']} — {labels['overall']}: {pct_str}%\n")
+              lines_out.append(f"[📊 {labels['link']}]({pages_url})\n")
+              lines_out.append(f"| {labels['module']} | {labels['coverage']} |")
+              lines_out.append("|---|---|")
+              for name, pct in sorted(rows, key=lambda r: -r[1]):
+                  lines_out.append(f"| {icon(pct)} {name} | {pct}% |")
+              lines_out.append("<!-- COVERAGE-END -->")
+              return "\n".join(lines_out)
 
           # Apply to every README variant that exists (English + any
           # translations) so coverage stays in sync across all of them.
@@ -145,6 +158,8 @@ jobs:
                           ["README.md", "README.ja.md", "README.zh.md", "README.he.md", "README.ar.md"]
                           if os.path.exists(f)]
           for readme_file in readme_files:
+              labels = i18n.get(readme_file, i18n["README.md"])
+              new_block = build_block(labels)
               with open(readme_file) as f:
                   content = f.read()
               content = re.sub(
@@ -310,16 +325,29 @@ jobs:
       - name: Update README checksums section
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          BLOCK="<!-- CHECKSUMS-START -->\n### 🔒 Release ${TAG} SHA256 Checksums\n\n\`\`\`\n"
+          CHECKSUM_LINES=""
           for f in checksums/*.sha256; do
             NAME=$(basename "$f" .sha256)
             SUM=$(cat "$f")
-            BLOCK="${BLOCK}${SUM}  ${NAME}\n"
+            CHECKSUM_LINES="${CHECKSUM_LINES}${SUM}  ${NAME}"$'\n'
           done
-          BLOCK="${BLOCK}\`\`\`\n<!-- CHECKSUMS-END -->"
-          python3 - "$BLOCK" <<'PYEOF'
+          python3 - "$TAG" "$CHECKSUM_LINES" <<'PYEOF'
           import re, sys, os
-          block = sys.argv[1]
+          tag = sys.argv[1]
+          checksum_lines = sys.argv[2]
+
+          # Best-effort translations of the checksums heading — not reviewed
+          # by native speakers, worth a sanity check before relying on them.
+          i18n = {
+              "README.md":    f"Release {tag} SHA256 Checksums",
+              "README.ja.md": f"リリース {tag} の SHA256 チェックサム",
+              "README.zh.md": f"发布 {tag} 的 SHA256 校验和",
+              "README.he.md": f"סכומי ביקורת SHA256 עבור גרסה {tag}",
+              "README.ar.md": f"المجاميع الاختبارية SHA256 لإصدار {tag}",
+          }
+
+          def build_block(heading):
+              return f"<!-- CHECKSUMS-START -->\n### 🔒 {heading}\n\n```\n{checksum_lines}```\n<!-- CHECKSUMS-END -->"
 
           # Apply to every README variant that exists (English + any
           # translations) so checksums stay in sync across all of them.
@@ -327,6 +355,8 @@ jobs:
                           ["README.md", "README.ja.md", "README.zh.md", "README.he.md", "README.ar.md"]
                           if os.path.exists(f)]
           for readme_file in readme_files:
+              heading = i18n.get(readme_file, i18n["README.md"])
+              block = build_block(heading)
               with open(readme_file) as f:
                   content = f.read()
               content = re.sub(
