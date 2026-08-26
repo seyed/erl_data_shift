@@ -132,22 +132,53 @@ jobs:
           # reviewed by native speakers, worth a sanity check before relying
           # on them for anything customer-facing.
           i18n = {
-              "README.md":    {"heading": "Test Coverage", "overall": "Overall", "link": "View interactive line-by-line coverage report", "module": "Module", "coverage": "Coverage"},
-              "README.ja.md": {"heading": "テストカバレッジ", "overall": "合計", "link": "インタラクティブなカバレッジレポートを見る", "module": "モジュール", "coverage": "カバレッジ"},
-              "README.zh.md": {"heading": "测试覆盖率", "overall": "总计", "link": "查看交互式逐行覆盖率报告", "module": "模块", "coverage": "覆盖率"},
-              "README.he.md": {"heading": "כיסוי בדיקות", "overall": "סה\"כ", "link": "צפה בדוח כיסוי אינטראקטיבי", "module": "מודול", "coverage": "כיסוי"},
-              "README.ar.md": {"heading": "تغطية الاختبار", "overall": "الإجمالي", "link": "عرض تقرير التغطية التفاعلي", "module": "الوحدة", "coverage": "التغطية"},
+              "README.md":    {"heading": "Test Coverage", "overall": "Overall", "link": "View interactive line-by-line coverage report", "module": "Module", "coverage": "Coverage", "rtl": False, "arabic_digits": False},
+              "README.ja.md": {"heading": "テストカバレッジ", "overall": "合計", "link": "インタラクティブなカバレッジレポートを見る", "module": "モジュール", "coverage": "カバレッジ", "rtl": False, "arabic_digits": False},
+              "README.zh.md": {"heading": "测试覆盖率", "overall": "总计", "link": "查看交互式逐行覆盖率报告", "module": "模块", "coverage": "覆盖率", "rtl": False, "arabic_digits": False},
+              "README.he.md": {"heading": "כיסוי בדיקות", "overall": "סה\"כ", "link": "צפה בדוח כיסוי אינטראקטיבי", "module": "מודול", "coverage": "כיסוי", "rtl": True, "arabic_digits": False},
+              "README.ar.md": {"heading": "تغطية الاختبار", "overall": "الإجمالي", "link": "عرض تقرير التغطية التفاعلي", "module": "الوحدة", "coverage": "التغطية", "rtl": True, "arabic_digits": True},
+              "README.fr.md": {"heading": "Couverture des tests", "overall": "Total", "link": "Voir le rapport de couverture interactif ligne par ligne", "module": "Module", "coverage": "Couverture", "rtl": False, "arabic_digits": False},
+              "README.de.md": {"heading": "Testabdeckung", "overall": "Gesamt", "link": "Interaktiven zeilenweisen Abdeckungsbericht anzeigen", "module": "Modul", "coverage": "Abdeckung", "rtl": False, "arabic_digits": False},
+              "README.no.md": {"heading": "Testdekning", "overall": "Totalt", "link": "Vis interaktiv linje-for-linje dekningsrapport", "module": "Modul", "coverage": "Dekning", "rtl": False, "arabic_digits": False},
+              "README.sv.md": {"heading": "Testtäckning", "overall": "Totalt", "link": "Visa interaktiv rad-för-rad-täckningsrapport", "module": "Modul", "coverage": "Täckning", "rtl": False, "arabic_digits": False},
+              "README.tr.md": {"heading": "Test Kapsamı", "overall": "Toplam", "link": "Etkileşimli satır satır kapsam raporunu görüntüle", "module": "Modül", "coverage": "Kapsam", "rtl": False, "arabic_digits": False},
+              "README.ms.md": {"heading": "Liputan Ujian", "overall": "Jumlah", "link": "Lihat laporan liputan interaktif baris demi baris", "module": "Modul", "coverage": "Liputan", "rtl": False, "arabic_digits": False},
+              "README.id.md": {"heading": "Cakupan Pengujian", "overall": "Total", "link": "Lihat laporan cakupan interaktif baris demi baris", "module": "Modul", "coverage": "Cakupan", "rtl": False, "arabic_digits": False},
+              "README.es.md": {"heading": "Cobertura de Pruebas", "overall": "Total", "link": "Ver informe de cobertura interactivo línea por línea", "module": "Módulo", "coverage": "Cobertura", "rtl": False, "arabic_digits": False},
           }
 
+          # Eastern Arabic-Indic digits. Note: numeral convention varies by
+          # region — Gulf/Egypt commonly use these, while Maghreb countries
+          # (Morocco, Algeria, Tunisia) often use Western digits instead.
+          # This is a judgment call, not a universal rule.
+          _ARABIC_DIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+
+          def localize_digits(s, use_arabic):
+              return s.translate(_ARABIC_DIGITS) if use_arabic else s
+
           def build_block(labels):
-              pct_str = str(total) if total is not None else "?"
+              pct_str = localize_digits(str(total) if total is not None else "?", labels["arabic_digits"])
               lines_out = ["<!-- COVERAGE-START -->"]
               lines_out.append(f"### 🧪 {labels['heading']} — {labels['overall']}: {pct_str}%\n")
               lines_out.append(f"[📊 {labels['link']}]({pages_url})\n")
-              lines_out.append(f"| {labels['module']} | {labels['coverage']} |")
-              lines_out.append("|---|---|")
-              for name, pct in sorted(rows, key=lambda r: -r[1]):
-                  lines_out.append(f"| {icon(pct)} {name} | {pct}% |")
+
+              if labels["rtl"]:
+                  # Markdown tables always render column order left-to-right
+                  # regardless of text direction, so RTL languages get a raw
+                  # HTML table with dir="rtl" instead — the only way GitHub's
+                  # renderer actually flows a table right-to-left.
+                  lines_out.append('<table dir="rtl" align="right">')
+                  lines_out.append(f"<tr><th>{labels['coverage']}</th><th>{labels['module']}</th></tr>")
+                  for name, pct in sorted(rows, key=lambda r: -r[1]):
+                      pct_disp = localize_digits(str(pct), labels["arabic_digits"])
+                      lines_out.append(f"<tr><td>{icon(pct)} {pct_disp}%</td><td>{name}</td></tr>")
+                  lines_out.append("</table>")
+              else:
+                  lines_out.append(f"| {labels['module']} | {labels['coverage']} |")
+                  lines_out.append("|---|---|")
+                  for name, pct in sorted(rows, key=lambda r: -r[1]):
+                      lines_out.append(f"| {icon(pct)} {name} | {pct}% |")
+
               lines_out.append("<!-- COVERAGE-END -->")
               return "\n".join(lines_out)
 
@@ -155,7 +186,9 @@ jobs:
           # translations) so coverage stays in sync across all of them.
           import os
           readme_files = [f for f in
-                          ["README.md", "README.ja.md", "README.zh.md", "README.he.md", "README.ar.md"]
+                          ["README.md", "README.ja.md", "README.zh.md", "README.he.md", "README.ar.md",
+                           "README.fr.md", "README.de.md", "README.no.md", "README.sv.md", "README.tr.md",
+                           "README.ms.md", "README.id.md", "README.es.md"]
                           if os.path.exists(f)]
           for readme_file in readme_files:
               labels = i18n.get(readme_file, i18n["README.md"])
@@ -177,8 +210,18 @@ jobs:
             ["README.zh.md"]="文档：更新覆盖率徽章 [skip ci]"
             ["README.he.md"]="תיעוד: עדכון תג כיסוי הבדיקות [skip ci]"
             ["README.ar.md"]="التوثيق: تحديث شارة التغطية [skip ci]"
+            ["README.fr.md"]="docs : mise à jour du badge de couverture [skip ci]"
+            ["README.de.md"]="docs: Abdeckungs-Badge aktualisiert [skip ci]"
+            ["README.no.md"]="docs: oppdater dekningsmerke [skip ci]"
+            ["README.sv.md"]="docs: uppdatera täckningsmärke [skip ci]"
+            ["README.tr.md"]="docs: kapsam rozetini güncelle [skip ci]"
+            ["README.ms.md"]="docs: kemas kini lencana liputan [skip ci]"
+            ["README.id.md"]="docs: perbarui lencana cakupan [skip ci]"
+            ["README.es.md"]="docs: actualizar insignia de cobertura [skip ci]"
           )
-          for f in "README.md" "README.ja.md" "README.zh.md" "README.he.md" "README.ar.md"; do
+          for f in "README.md" "README.ja.md" "README.zh.md" "README.he.md" "README.ar.md" \
+                   "README.fr.md" "README.de.md" "README.no.md" "README.sv.md" "README.tr.md" \
+                   "README.ms.md" "README.id.md" "README.es.md"; do
             if [ -f "$f" ]; then
               git add "$f"
               git diff --cached --quiet -- "$f" || git commit -m "${commit_titles[$f]}"
@@ -344,6 +387,14 @@ jobs:
               "README.zh.md": f"发布 {tag} 的 SHA256 校验和",
               "README.he.md": f"סכומי ביקורת SHA256 עבור גרסה {tag}",
               "README.ar.md": f"المجاميع الاختبارية SHA256 لإصدار {tag}",
+              "README.fr.md": f"Sommes de contrôle SHA256 de la version {tag}",
+              "README.de.md": f"SHA256-Prüfsummen für Release {tag}",
+              "README.no.md": f"SHA256-sjekksummer for utgivelse {tag}",
+              "README.sv.md": f"SHA256-kontrollsummor för utgåva {tag}",
+              "README.tr.md": f"{tag} Sürümü SHA256 Sağlama Toplamları",
+              "README.ms.md": f"Jumlah Semak SHA256 untuk Keluaran {tag}",
+              "README.id.md": f"Checksum SHA256 untuk Rilis {tag}",
+              "README.es.md": f"Sumas de comprobación SHA256 de la versión {tag}",
           }
 
           def build_block(heading):
@@ -352,7 +403,9 @@ jobs:
           # Apply to every README variant that exists (English + any
           # translations) so checksums stay in sync across all of them.
           readme_files = [f for f in
-                          ["README.md", "README.ja.md", "README.zh.md", "README.he.md", "README.ar.md"]
+                          ["README.md", "README.ja.md", "README.zh.md", "README.he.md", "README.ar.md",
+                           "README.fr.md", "README.de.md", "README.no.md", "README.sv.md", "README.tr.md",
+                           "README.ms.md", "README.id.md", "README.es.md"]
                           if os.path.exists(f)]
           for readme_file in readme_files:
               heading = i18n.get(readme_file, i18n["README.md"])
@@ -374,8 +427,18 @@ jobs:
             ["README.zh.md"]="文档：更新 ${TAG} 的校验和 [skip ci]"
             ["README.he.md"]="תיעוד: עדכון סכומי ביקורת עבור ${TAG} [skip ci]"
             ["README.ar.md"]="التوثيق: تحديث المجاميع الاختبارية لـ ${TAG} [skip ci]"
+            ["README.fr.md"]="docs : mise à jour des sommes de contrôle pour ${TAG} [skip ci]"
+            ["README.de.md"]="docs: Prüfsummen für ${TAG} aktualisiert [skip ci]"
+            ["README.no.md"]="docs: oppdater sjekksummer for ${TAG} [skip ci]"
+            ["README.sv.md"]="docs: uppdatera kontrollsummor för ${TAG} [skip ci]"
+            ["README.tr.md"]="docs: ${TAG} için sağlama toplamlarını güncelle [skip ci]"
+            ["README.ms.md"]="docs: kemas kini jumlah semak untuk ${TAG} [skip ci]"
+            ["README.id.md"]="docs: perbarui checksum untuk ${TAG} [skip ci]"
+            ["README.es.md"]="docs: actualizar sumas de comprobación para ${TAG} [skip ci]"
           )
-          for f in "README.md" "README.ja.md" "README.zh.md" "README.he.md" "README.ar.md"; do
+          for f in "README.md" "README.ja.md" "README.zh.md" "README.he.md" "README.ar.md" \
+                   "README.fr.md" "README.de.md" "README.no.md" "README.sv.md" "README.tr.md" \
+                   "README.ms.md" "README.id.md" "README.es.md"; do
             if [ -f "$f" ]; then
               git add "$f"
               git diff --cached --quiet -- "$f" || git commit -m "${commit_titles[$f]}"
