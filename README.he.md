@@ -28,17 +28,18 @@
 
 [📊 צפה בדוח כיסוי אינטראקטיבי](https://seyed.github.io/erl_data_shift/)
 
-| מודול | כיסוי |
-|---|---|
-| ✅ erl_data_shift_bench | 100% |
-| ✅ erl_data_shift_json | 100% |
-| ✅ erl_data_shift_migrations | 96% |
-| ✅ erl_data_shift_env | 94% |
-| ✅ erl_data_shift_app | 93% |
-| ✅ erl_data_shift_db | 93% |
-| ✅ erl_data_shift_migrator | 92% |
-| ✅ erl_data_shift_scaffold | 82% |
-| ✅ erl_data_shift_init | 80% |
+<table dir="rtl" align="right">
+<tr><th>כיסוי</th><th>מודול</th></tr>
+<tr><td>✅ 100%</td><td>erl_data_shift_bench</td></tr>
+<tr><td>✅ 100%</td><td>erl_data_shift_json</td></tr>
+<tr><td>✅ 96%</td><td>erl_data_shift_migrations</td></tr>
+<tr><td>✅ 94%</td><td>erl_data_shift_env</td></tr>
+<tr><td>✅ 93%</td><td>erl_data_shift_app</td></tr>
+<tr><td>✅ 93%</td><td>erl_data_shift_db</td></tr>
+<tr><td>✅ 92%</td><td>erl_data_shift_migrator</td></tr>
+<tr><td>✅ 82%</td><td>erl_data_shift_scaffold</td></tr>
+<tr><td>✅ 80%</td><td>erl_data_shift_init</td></tr>
+</table>
 <!-- COVERAGE-END -->
 
 
