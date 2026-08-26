@@ -26,21 +26,22 @@ A standalone Postgres migration CLI
  
 
 <!-- COVERAGE-START -->
-### 🧪 تغطية الاختبار — الإجمالي: 92%
+### 🧪 تغطية الاختبار — الإجمالي: ٩٢%
 
 [📊 عرض تقرير التغطية التفاعلي](https://seyed.github.io/erl_data_shift/)
 
-| الوحدة | التغطية |
-|---|---|
-| ✅ erl_data_shift_bench | 100% |
-| ✅ erl_data_shift_json | 100% |
-| ✅ erl_data_shift_migrations | 96% |
-| ✅ erl_data_shift_env | 94% |
-| ✅ erl_data_shift_app | 93% |
-| ✅ erl_data_shift_db | 93% |
-| ✅ erl_data_shift_migrator | 92% |
-| ✅ erl_data_shift_scaffold | 82% |
-| ✅ erl_data_shift_init | 80% |
+<table dir="rtl" align="right">
+<tr><th>التغطية</th><th>الوحدة</th></tr>
+<tr><td>✅ ١٠٠%</td><td>erl_data_shift_bench</td></tr>
+<tr><td>✅ ١٠٠%</td><td>erl_data_shift_json</td></tr>
+<tr><td>✅ ٩٦%</td><td>erl_data_shift_migrations</td></tr>
+<tr><td>✅ ٩٤%</td><td>erl_data_shift_env</td></tr>
+<tr><td>✅ ٩٣%</td><td>erl_data_shift_app</td></tr>
+<tr><td>✅ ٩٣%</td><td>erl_data_shift_db</td></tr>
+<tr><td>✅ ٩٢%</td><td>erl_data_shift_migrator</td></tr>
+<tr><td>✅ ٨٢%</td><td>erl_data_shift_scaffold</td></tr>
+<tr><td>✅ ٨٠%</td><td>erl_data_shift_init</td></tr>
+</table>
 <!-- COVERAGE-END -->
 
 
