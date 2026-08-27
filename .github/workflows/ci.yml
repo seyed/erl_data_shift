@@ -204,29 +204,20 @@ jobs:
           PYEOF
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          declare -A commit_titles=(
-            ["README.md"]="docs: update coverage badge [skip ci]"
-            ["README.ja.md"]="ドキュメント: カバレッジバッジを更新 [skip ci]"
-            ["README.zh.md"]="文档：更新覆盖率徽章 [skip ci]"
-            ["README.he.md"]="תיעוד: עדכון תג כיסוי הבדיקות [skip ci]"
-            ["README.ar.md"]="التوثيق: تحديث شارة التغطية [skip ci]"
-            ["README.fr.md"]="docs : mise à jour du badge de couverture [skip ci]"
-            ["README.de.md"]="docs: Abdeckungs-Badge aktualisiert [skip ci]"
-            ["README.no.md"]="docs: oppdater dekningsmerke [skip ci]"
-            ["README.sv.md"]="docs: uppdatera täckningsmärke [skip ci]"
-            ["README.tr.md"]="docs: kapsam rozetini güncelle [skip ci]"
-            ["README.ms.md"]="docs: kemas kini lencana liputan [skip ci]"
-            ["README.id.md"]="docs: perbarui lencana cakupan [skip ci]"
-            ["README.es.md"]="docs: actualizar insignia de cobertura [skip ci]"
-          )
+          CHANGED_FILES=""
           for f in "README.md" "README.ja.md" "README.zh.md" "README.he.md" "README.ar.md" \
                    "README.fr.md" "README.de.md" "README.no.md" "README.sv.md" "README.tr.md" \
                    "README.ms.md" "README.id.md" "README.es.md"; do
             if [ -f "$f" ]; then
               git add "$f"
-              git diff --cached --quiet -- "$f" || git commit -m "${commit_titles[$f]}"
+              if ! git diff --cached --quiet -- "$f"; then
+                CHANGED_FILES="${CHANGED_FILES}${f}\n"
+              fi
             fi
           done
+          if [ -n "$CHANGED_FILES" ]; then
+            git commit -m "docs: update coverage badges [skip ci]" -m "$(printf '%b' "Updated:\n${CHANGED_FILES}")"
+          fi
           git push
 
   # Deploys the coverage HTML report uploaded above to GitHub Pages.
@@ -421,27 +412,18 @@ jobs:
           PYEOF
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          declare -A commit_titles=(
-            ["README.md"]="docs: update checksums for ${TAG} [skip ci]"
-            ["README.ja.md"]="ドキュメント: ${TAG} のチェックサムを更新 [skip ci]"
-            ["README.zh.md"]="文档：更新 ${TAG} 的校验和 [skip ci]"
-            ["README.he.md"]="תיעוד: עדכון סכומי ביקורת עבור ${TAG} [skip ci]"
-            ["README.ar.md"]="التوثيق: تحديث المجاميع الاختبارية لـ ${TAG} [skip ci]"
-            ["README.fr.md"]="docs : mise à jour des sommes de contrôle pour ${TAG} [skip ci]"
-            ["README.de.md"]="docs: Prüfsummen für ${TAG} aktualisiert [skip ci]"
-            ["README.no.md"]="docs: oppdater sjekksummer for ${TAG} [skip ci]"
-            ["README.sv.md"]="docs: uppdatera kontrollsummor för ${TAG} [skip ci]"
-            ["README.tr.md"]="docs: ${TAG} için sağlama toplamlarını güncelle [skip ci]"
-            ["README.ms.md"]="docs: kemas kini jumlah semak untuk ${TAG} [skip ci]"
-            ["README.id.md"]="docs: perbarui checksum untuk ${TAG} [skip ci]"
-            ["README.es.md"]="docs: actualizar sumas de comprobación para ${TAG} [skip ci]"
-          )
+          CHANGED_FILES=""
           for f in "README.md" "README.ja.md" "README.zh.md" "README.he.md" "README.ar.md" \
                    "README.fr.md" "README.de.md" "README.no.md" "README.sv.md" "README.tr.md" \
                    "README.ms.md" "README.id.md" "README.es.md"; do
             if [ -f "$f" ]; then
               git add "$f"
-              git diff --cached --quiet -- "$f" || git commit -m "${commit_titles[$f]}"
+              if ! git diff --cached --quiet -- "$f"; then
+                CHANGED_FILES="${CHANGED_FILES}${f}\n"
+              fi
             fi
           done
+          if [ -n "$CHANGED_FILES" ]; then
+            git commit -m "docs: update checksums for ${TAG} [skip ci]" -m "$(printf '%b' "Updated:\n${CHANGED_FILES}")"
+          fi
           git push origin HEAD:main
