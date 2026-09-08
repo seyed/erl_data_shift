@@ -23,8 +23,7 @@
 ![Erlang/OTP](https://img.shields.io/badge/OTP-27%2B-blue)
 ![Les PR sont les bienvenues](https://img.shields.io/badge/PRs-welcome-brightgreen)
 
-Entschuldigung: Diese deutsche Übersetzung wurde mit einer LLM erstellt. Falls die Formulierung nicht natürlich klingt, senden Sie bitte das vollständige deutsche Skript an seyed@swiftter.com oder stellen Sie einen PR in diesem Repository ein!
-
+* Bitte beachten Sie, dass dieses Dokument eine maschinelle Übersetzung ist. Wenn Sie diese Sprache als Muttersprache verwenden, senden Sie bitte Ihre README-Version per Pull Request ein.
 
 
 ## ⚠️ Haftungsausschluss
