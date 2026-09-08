@@ -10,9 +10,14 @@
    ░  ░   ░          ░  
         ░               
 ```
-**A standalone Postgres migration CLI** 
+**EDS - A standalone Postgres migration CLI** 
 
-🇬🇧 English | [🇯🇵 日本語](README.ja.md) | [🇨🇳 中文](README.zh.md) | [🇮🇱 עברית](README.he.md) | [العربية](README.ar.md) | [🇫🇷 Français](README.fr.md) | [🇩🇪 Deutsch](README.de.md) | [🇳🇴 Norsk](README.no.md) | [🇸🇪 Svenska](README.sv.md) | [🇹🇷 Türkçe](README.tr.md) | [🇲🇾 Bahasa Melayu](README.ms.md) | [🇮🇩 Bahasa Indonesia](README.id.md) | [🇪🇸 Español](README.es.md)
+<details>
+<summary>🌍 README available in other languages</summary>
+
+[🇯🇵 日本語](README.ja.md) | [🇨🇳 中文](README.zh.md) | [🇪🇸 Español](README.es.md) | [🇫🇷 Français](README.fr.md) | [🇩🇪 Deutsch](README.de.md) | [🇳🇴 Norsk](README.no.md) | [🇸🇪 Svenska](README.sv.md) | [🇹🇷 Türkçe](README.tr.md) | [🇮🇱 עברית](README.he.md) | [🇸🇦 العربية](README.ar.md) | [🇮🇩 Bahasa Indonesia](README.id.md) | [🇲🇾 Bahasa Melayu](README.ms.md)
+
+</details>   
 
 [![CI](https://github.com/seyed/erl_data_shift/actions/workflows/ci.yml/badge.svg)](https://github.com/seyed/erl_data_shift/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/github/license/seyed/erl_data_shift)](LICENSE)
