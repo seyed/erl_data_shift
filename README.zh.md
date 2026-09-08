@@ -12,10 +12,6 @@
 ```
 🇨🇳 中文* | [🇬🇧 English](README.md) | [🇯🇵 日本語](README.ja.md) | [🇮🇱 עברית](README.he.md) | [🇸🇦 العربية](README.ar.md) | [🇫🇷 Français](README.fr.md) | [🇩🇪 Deutsch](README.de.md) | [🇳🇴 Norsk](README.no.md) | [🇸🇪 Svenska](README.sv.md) | [🇹🇷 Türkçe](README.tr.md) | [🇲🇾 Bahasa Melayu](README.ms.md) | [🇮🇩 Bahasa Indonesia](README.id.md) | [🇪🇸 Español](README.es.md)   
 
-* **抱歉**：本中文翻译由 LLM 生成，如表达不够地道，欢迎将完整中文稿件发送至 seyed@swiftter.com，或直接向本仓库提交 PR！
-
-
-
 **独立的 Postgres 迁移命令行工具** 
 
 [![CI](https://github.com/seyed/erl_data_shift/actions/workflows/ci.yml/badge.svg)](https://github.com/seyed/erl_data_shift/actions/workflows/ci.yml)
@@ -26,6 +22,9 @@
 ![Windows](https://img.shields.io/badge/Windows-supported-success)
 ![Erlang/OTP](https://img.shields.io/badge/OTP-27%2B-blue)
 ![Les PR sont les bienvenues](https://img.shields.io/badge/PRs-welcome-brightgreen)
+
+* 请注意，本文档为机器翻译。如果您以该语言为母语，请通过 pull request 提交您的 README 版本。
+
 
 ⚠️ 免责声明
 ```

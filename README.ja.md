@@ -13,8 +13,6 @@
 
 🇯🇵 日本語*  | [🇬🇧 English](README.md) | [🇨🇳 中文](README.zh.md) | [🇮🇱 עברית](README.he.md) | [🇸🇦 العربية](README.ar.md) | [🇫🇷 Français](README.fr.md) | [🇩🇪 Deutsch](README.de.md) | [🇳🇴 Norsk](README.no.md) | [🇸🇪 Svenska](README.sv.md) | [🇹🇷 Türkçe](README.tr.md) | [🇲🇾 Bahasa Melayu](README.ms.md) | [🇮🇩 Bahasa Indonesia](README.id.md) | [🇪🇸 Español](README.es.md)   
 
-* セキュリティに関するお問い合わせ：申し訳ありません：本日本語訳は LLM によって生成されました。表現が不自然な場合は、完全な日本語原稿を seyed@swiftter.com までお送りいただくか、本リポジトリに PR を送ってください！
-
 **スタンドアロンの Postgres マイグレーション CLI**
 
 [![CI](https://github.com/seyed/erl_data_shift/actions/workflows/ci.yml/badge.svg)](https://github.com/seyed/erl_data_shift/actions/workflows/ci.yml)
@@ -25,6 +23,9 @@
 ![Windows](https://img.shields.io/badge/Windows-supported-success)
 ![Erlang/OTP](https://img.shields.io/badge/OTP-27%2B-blue)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
+
+* この文書は機械翻訳によるものであることに注意してください。この言語が母語である場合は、README のバージョンを Pull Request として送信してください。
+
 
 ⚠️ 免責事項
 ```
