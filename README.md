@@ -58,32 +58,32 @@ By using this Tool, you acknowledge that you have read, understood, and agreed t
 
 _eds is new — these are established, widely-adopted tools. Here's an honest look at where eds fits and where it doesn't (yet)._
 
-**Where eds fits:** a small, dependency-free CLI for teams on Postgres who want Flyway-style safety (transactions, checksums, locking) without a JVM or a paid tier — not a fit if you need multi-database support or you're already deep in an Atlas/Flyway setup.
+**Where eds fits:** a small, dependency-free CLI for teams on Postgres who want Flyway-style safety (transactions, checksums, locking) without a JVM or a paid tier — not a fit if you need multi-database support, or you're already deep in an Atlas/Flyway setup, or you're building an Elixir app where Ecto is the natural choice.
 
 ### Cost, data, and licensing
 
-| | **eds** | Flyway | golang-migrate | Atlas |
-|---|---|---|---|---|
-| Cost | ✅ (free, no paid tier — all features included) | ⚠️ (free core, but rollback/dry-run require paid Teams/Enterprise) | ✅ (free, no paid tier) | ⚠️ (free CLI, but advanced features gated behind paid Atlas Cloud) |
-| Usage data collection | ✅ (none — eds sends nothing anywhere) | ⚠️ (telemetry on by default, opt-out via env var — [Redgate docs](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)) | ✅ (no telemetry found in their docs/repo) | ⚠️ (telemetry on by default — commands run, OS, hostname — opt-out via env var — [Atlas's own privacy docs](https://atlasgo.io/cli/data-privacy)) |
-| License | MIT | Community free / Teams paid | MIT | Apache 2.0 (paid cloud features) |
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| Cost | ✅ (free, no paid tier — all features included) | ⚠️ (free core, but rollback/dry-run require paid Teams/Enterprise) | ✅ (free, no paid tier) | ⚠️ (free CLI, but advanced features gated behind paid Atlas Cloud) | ✅ (free, no paid tier) |
+| Usage data collection | ✅ (none — eds sends nothing anywhere) | ⚠️ (telemetry on by default, opt-out via env var — [Redgate docs](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)) | ✅ (no telemetry found in their docs/repo) | ⚠️ (telemetry on by default — commands run, OS, hostname — opt-out via env var — [Atlas's own privacy docs](https://atlasgo.io/cli/data-privacy)) | ✅ (no telemetry found; Elixir's `:telemetry` library is local instrumentation/hooks, not phone-home analytics) |
+| License | MIT | Community free / Teams paid | MIT | Apache 2.0 (paid cloud features) | Apache 2.0 |
 
 ### Features and maturity
 
-| | **eds** | Flyway | golang-migrate | Atlas |
-|---|---|---|---|---|
-| Runtime dependency | ✅ (none — single binary, bundles ERTS) | ❌ (needs a JVM, or their CLI which bundles one) | ✅ (none — single Go binary) | ✅ (none — single Go binary) |
-| Database support | ❌ (PostgreSQL only) | ✅ (PostgreSQL, MySQL, Oracle, and more) | ✅ (many) | ✅ (many) |
-| Transactional migrations | ✅ (per-file) | ✅ | ⚠️ (driver-dependent) | ✅ |
-| Rollback | ✅ (`migrate down`, hand-written `.down.sql`) | ❌ (Teams/Enterprise tier only) | ✅ (hand-written down scripts) | ✅ (auto-computed reverse diff) |
-| Checksum drift detection | ✅ (blocks by default) | ✅ | ❌ | ✅ (via lint) |
-| Concurrency lock | ✅ (Postgres advisory lock) | ✅ | ⚠️ (driver-dependent) | ✅ |
-| Dry-run / preview | ✅ | ❌ (Enterprise only) | ❌ | ✅ (`migrate lint`) |
-| JSON output for CI | ✅ | ⚠️ (limited) | ❌ | ✅ |
-| Approx. binary/download size | ~40–60 MB* (bundles Erlang runtime) | ~100+ MB (bundles a JRE) | ~10–20 MB (native Go binary) | ~15–25 MB (native Go binary) |
-| Maturity | ❌ (new) | ✅ (10+ years, widely adopted) | ✅ (10+ years, widely adopted) | ⚠️ (newer, growing fast) |
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| Runtime dependency | ✅ (none — single binary, bundles ERTS) | ❌ (needs a JVM, or their CLI which bundles one) | ✅ (none — single Go binary) | ✅ (none — single Go binary) | ❌ (needs Elixir + Erlang/OTP + Mix installed — a library, not a standalone binary) |
+| Database support | ❌ (PostgreSQL only) | ✅ (PostgreSQL, MySQL, Oracle, and more) | ✅ (many) | ✅ (many) | ✅ (PostgreSQL, MySQL, SQLite, MSSQL, and more via adapters) |
+| Transactional migrations | ✅ (per-file) | ✅ | ⚠️ (driver-dependent) | ✅ | ✅ |
+| Rollback | ✅ (`migrate down`, hand-written `.down.sql`) | ❌ (Teams/Enterprise tier only) | ✅ (hand-written down scripts) | ✅ (auto-computed reverse diff) | ✅ (`mix ecto.rollback`, hand-written `down`/`change`) |
+| Checksum drift detection | ✅ (blocks by default) | ✅ | ❌ | ✅ (via lint) | ❌ (none found in Ecto core) |
+| Concurrency lock | ✅ (Postgres advisory lock, always on) | ✅ | ⚠️ (driver-dependent) | ✅ | ⚠️ (table lock by default; advisory lock available but must be configured) |
+| Dry-run / preview | ✅ | ❌ (Enterprise only) | ❌ | ✅ (`migrate lint`) | ⚠️ (`mix ecto.migrations` shows pending status, not a true SQL preview) |
+| JSON output for CI | ✅ | ⚠️ (limited) | ❌ | ✅ | ❌ (standard Mix task output is textual) |
+| Approx. binary/download size | ~40–60 MB* (bundles Erlang runtime) | ~100+ MB (bundles a JRE) | ~10–20 MB (native Go binary) | ~15–25 MB (native Go binary) | N/A (library, not a distributed binary) |
+| Maturity | ❌ (new) | ✅ (10+ years, widely adopted) | ✅ (10+ years, widely adopted) | ⚠️ (newer, growing fast) | ✅ (core to the Elixir/Phoenix ecosystem since 2015) |
 
-\* Size figures are approximate and change between releases — check `ls -lh` on your own downloaded `eds` binary and each tool's latest release page for exact current numbers rather than relying on this table.  
+\* Size figures are approximate and change between releases — check `ls -lh` on your own downloaded `eds` binary and each tool's latest release page for exact current numbers rather than relying on this table.
 
 ## Security 
 
