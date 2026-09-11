@@ -51,37 +51,38 @@ Bu Aracı kullanarak, bu koşulları okuduğunuzu, anladığınızı ve kabul et
 1. Veritabanı şema değişikliklerini basit komutlarla oluşturma, çalıştırma ve doğrulama.
 2. Son kullanıcı için sıfır bağımlılık.
 
-## eds'in büyüklerle karşılaştırması
+-- 
+## eds'in önde gelen araçlarla karşılaştırması
 
-_eds yenidir — bunlar yerleşik, yaygın olarak benimsenmiş araçlardır. eds'in nerede yer aldığı ve (henüz) yer almadığı yerler hakkında dürüst bir bakış._
+_eds yeni bir araç — aşağıdakiler olgun ve yaygın olarak benimsenmiş araçlardır. eds'in nerede uygun olduğu ve (henüz) olmadığı konusunda dürüst bir bakış._
 
-**eds'in yer aldığı alan:** Postgres kullanan ekipler için Flyway benzeri güvenlik (işlemler, özet kontrolleri, kilitlenme) sunan, JVM veya ücretli tier gerektirmeyen küçük, bağımsız bir CLI — çoklu veritabanı desteğine ihtiyacınız varsa veya zaten Atlas/Flyway kurulumunun derinindeyseniz uygun değildir.
+**eds'in uygun olduğu yer:** PostgreSQL kullanan ve JVM veya ücretli katman olmadan Flyway tarzı güvenlik (işlemler, checksum, kilit) isteyen ekipler için küçük, bağımlılıksız bir CLI — çoklu veritabanı desteğine ihtiyacınız varsa, zaten Atlas/Flyway ekosisteminde derinleştiyseniz veya Ecto'nun doğal seçim olduğu bir Elixir uygulaması geliştiriyorsanız uygun değildir.
 
-### Maliyet, veri ve lisanslama
+### Maliyet, veri toplama ve lisans
 
-| | **eds** | Flyway | golang-migrate | Atlas |
-|---|---|---|---|---|
-| Maliyet | ✅ (ücretsiz, ücretli tier yok — tüm özellikler dahil) | ⚠️ (ücretsiz çekirdek, ancak geri alma/dry-run ücretli Teams/Enterprise gerektirir) | ✅ (ücretsiz, ücretli tier yok) | ⚠️ (ücretsiz CLI, ancak gelişmiş özellikler ücretli Atlas Cloud'un arkasında) |
-| Kullanım veri toplama | ✅ (yok — eds hiçbir yere hiçbir şey göndermez) | ⚠️ (telemetri varsayılan olarak açık, ortam değişkeni ile opt-out — [Redgate belgeleri](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)) | ✅ (belgeleri/repo'larında telemetri bulunamadı) | ⚠️ (telemetri varsayılan olarak açık — çalıştırılan komutlar, OS, ana makine adı — ortam değişkeni ile opt-out — [Atlas'ın kendi gizlilik belgeleri](https://atlasgo.io/cli/data-privacy)) |
-| Lisans | MIT | Community ücretsiz / Teams ücretli | MIT | Apache 2.0 (ücretli bulut özellikleri) |
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| Maliyet | ✅ (ücretsiz, ücretli katman yok — tüm özellikler dahil) | ⚠️ (çekirdek ücretsiz, ancak rollback/dry-run ücretli Teams/Enterprise gerektirir) | ✅ (ücretsiz, ücretli katman yok) | ⚠️ (CLI ücretsiz, ancak gelişmiş özellikler ücretli Atlas Cloud arkasında) | ✅ (ücretsiz, ücretli katman yok) |
+| Kullanım veri toplama | ✅ (yok — eds hiçbir yere hiçbir şey göndermez) | ⚠️ (telemetri varsayılan olarak etkin, ortam değişkeni ile devre dışı bırakılabilir — [Redgate belgeleri](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)) | ✅ (belgeleri/repo'larında telemetri bulunamadı) | ⚠️ (telemetri varsayılan olarak etkin — çalıştırılan komutlar, OS, hostname — ortam değişkeni ile devre dışı bırakılabilir — [Atlas gizlilik belgeleri](https://atlasgo.io/cli/data-privacy)) | ✅ (telemetri bulunamadı. Elixir'in `:telemetry` kütüphanesi yerel enstrümantasyon/hooks'tur, dışarıya veri gönderen analitik değildir) |
+| Lisans | MIT | Topluluk ücretsiz / Teams ücretli | MIT | Apache 2.0 (ücretli bulut özellikleri) | Apache 2.0 |
 
 ### Özellikler ve olgunluk
 
-| | **eds** | Flyway | golang-migrate | Atlas |
-|---|---|---|---|---|
-| Çalışma zamanı bağımlılığı | ✅ (yok — tek ikili dosya, ERTS içerir) | ❌ (JVM gerektirir veya JVM içeren CLI'ları) | ✅ (yok — tek Go ikilisi) | ✅ (yok — tek Go ikilisi) |
-| Veritabanı desteği | ❌ (yalnızca PostgreSQL) | ✅ (PostgreSQL, MySQL, Oracle ve daha fazlası) | ✅ (birçok) | ✅ (birçok) |
-| İşlemsel migrasyonlar | ✅ (dosya başına) | ✅ | ⚠️ (sürücüye bağlı) | ✅ |
-| Geri alma | ✅ (`migrate down`, elle yazılmış `.down.sql`) | ❌ (yalnızca Teams/Enterprise tier) | ✅ (elle yazılmış down betikleri) | ✅ (otomatik hesaplanan ters diff) |
-| Özet sapma algılama | ✅ (varsayılan olarak engeller) | ✅ | ❌ | ✅ (lint ile) |
-| Eşzamanlı kilit | ✅ (Postgres danışman kilit) | ✅ | ⚠️ (sürücüye bağlı) | ✅ |
-| Dry-run / önizleme | ✅ | ❌ (yalnızca Enterprise) | ❌ | ✅ (`migrate lint`) |
-| CI için JSON çıktısı | ✅ | ⚠️ (sınırlı) | ❌ | ✅ |
-| Yaklaşık ikili/indirme boyutu | ~40–60 MB* (Erlang çalışma zamanı içerir) | ~100+ MB (JRE içerir) | ~10–20 MB (yerel Go ikilisi) | ~15–25 MB (yerel Go ikilisi) |
-| Olgunluk | ❌ (yeni) | ✅ (10+ yıl, yaygın benimsenmiş) | ✅ (10+ yıl, yaygın benimsenmiş) | ⚠️ (daha yeni, hızlı büyüyen) |
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| Runtime bağımlılığı | ✅ (yok — tek binary, ERTS'i barındırır) | ❌ (JVM gerektirir, veya JVM barındıran CLI'ları) | ✅ (yok — tek Go binary) | ✅ (yok — tek Go binary) | ❌ (Elixir + Erlang/OTP + Mix kurulu olmalı — bir kütüphane, bağımsız binary değil) |
+| Veritabanı desteği | ❌ (yalnızca PostgreSQL) | ✅ (PostgreSQL, MySQL, Oracle ve daha fazlası) | ✅ (çok fazla) | ✅ (çok fazla) | ✅ (PostgreSQL, MySQL, SQLite, MSSQL ve daha fazlası adapter'larla) |
+| İşlem tabanlı migrasyonlar | ✅ (dosya başına) | ✅ | ⚠️ (sürücüye bağlı) | ✅ | ✅ |
+| Rollback | ✅ (`migrate down`, elle yazılmış `.down.sql`) | ❌ (yalnızca Teams/Enterprise) | ✅ (elle yazılmış down script'leri) | ✅ (otomatik hesaplanan reverse diff) | ✅ (`mix ecto.rollback`, elle yazılmış `down`/`change`) |
+| Checksum drift algılama | ✅ (varsayılan olarak engeller) | ✅ | ❌ | ✅ (lint ile) | ❌ (Ecto çekirdeğinde bulunamadı) |
+| Eşzamanlı kilit | ✅ (Postgres advisory lock, her zaman etkin) | ✅ | ⚠️ (sürücüye bağlı) | ✅ | ⚠️ (varsayılan olarak table lock; advisory lock mevcut ancak yapılandırma gerektirir) |
+| Dry-run / önizleme | ✅ | ❌ (yalnızca Enterprise) | ❌ | ✅ (`migrate lint`) | ⚠️ (`mix ecto.migrations` bekleyen durumu gösterir, gerçek bir SQL önizlemesi değildir) |
+| CI için JSON çıktı | ✅ | ⚠️ (sınırlı) | ❌ | ✅ | ❌ (standart Mix task çıktısı metinsel) |
+| Yaklaşık binary/indirme boyutu | ~40–60 MB* (Erlang runtime'ı barındırır) | ~100+ MB (JRE barındırır) | ~10–20 MB (yerel Go binary) | ~15–25 MB (yerel Go binary) | N/A (kütüphane, dağıtılan binary değil) |
+| Olgunluk | ❌ (yeni) | ✅ (10+ yıl, yaygın benimsenmiş) | ✅ (10+ yıl, yaygın benimsenmiş) | ⚠️ (daha yeni, hızlı büyüyor) | ✅ (2015'ten beri Elixir/Phoenix ekosisteminin çekirdeği) |
 
-\* Boyut rakamları yaklaşık olup sürümler arasında değişir — bu tableye güvenmek yerine, kendi indirdiğiniz `eds` ikilisi için `ls -lh` komutunu ve her aracın en son sürüm sayfasını kontrol edin.   
-
+\* Boyut değerleri yaklaşık olup sürümler arasında değişir — kesin güncel sayılar için indirilen `eds` binary'sine `ls -lh` uygulayın ve her aracın en güncel sürüm sayfasını kontrol edin.   
+-- 
 ## Güvenlik
 
 <!-- CHECKSUMS-START -->

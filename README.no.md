@@ -50,37 +50,37 @@ Ved å bruke verktøyet bekrefter du at du har lest, forstått og godkjent disse
 1. Bygge, kjøre og verifisere endringer i databasens skjema via enkle kommandoer.
 2. Ingen avhengigheter for sluttbrukeren.
 
-## Hvordan eds sammenligner seg med de store
+-- 
+## Sammenligning av eds med de ledende verktøyene
 
-_eds er nytt — disse er etablerte, bredt adopterte verktøy. Her er et ærlig blikk på hvor eds passer og hvor det ikke (ennå) gjør._
+_eds er et nytt verktøy — følgende er etablerte, vidt utbredte verktøy. Her er et ærlig blikk på hvor eds passer og hvor det (ennå) ikke gjør det._
 
-**Hvor eds passer:** et lite, avhengighetsfritt CLI for team på Postgres som ønsker Flyway-lik sikkerhet (transaksjoner, kontrollsummer, låsing) uten en JVM eller en betalt tier — ikke et passende valg hvis du trenger flerdatabasestøtte eller allerede er dypt inne i et Atlas/Flyway-oppsett.
+**Hvor eds passer:** et lite, avhengighetsfritt CLI for team som bruker PostgreSQL og vil ha Flyway-liknende sikkerhet (transaksjoner, checksums, låsing) uten JVM eller betalt tier — ikke egnet hvis du trenger multi-database-støtte, hvis du allerede er dypt inne i Atlas/Flyway, eller hvis du bygger en Elixir-app der Ecto er det naturlige valget.
 
-### Kostnad, data og lisensiering
+### Kostnad, datainnsamling og lisens
 
-| | **eds** | Flyway | golang-migrate | Atlas |
-|---|---|---|---|---|
-| Kostnad | ✅ (gratis, ingen betalt tier — alle funksjoner inkludert) | ⚠️ (gratis kjernen, men rollback/dry-run krever betalt Teams/Enterprise) | ✅ (gratis, ingen betalt tier) | ⚠️ (gratis CLI, men avanserte funksjoner låst bak betalt Atlas Cloud) |
-| Innsamling av bruksdata | ✅ (ingen — eds sender ingenting noen steder) | ⚠️ (telemetri på som standard, opt-out via miljøvariabel — [Redgate-dokumentasjon](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)) | ✅ (ingen telemetri funnet i deres dokumentasjon/repo) | ⚠️ (telemetri på som standard — kommandoer kjørt, OS, vertsmaskin — opt-out via miljøvariabel — [Atlas' egne personvern-dokumenter](https://atlasgo.io/cli/data-privacy)) |
-| Lisens | MIT | Community gratis / Teams betalt | MIT | Apache 2.0 (betalte cloud-funksjoner) |
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| Kostnad | ✅ (gratis, ingen betalt tier — alle funksjoner inkludert) | ⚠️ (kjernen gratis, men rollback/dry-run krever betalt Teams/Enterprise) | ✅ (gratis, ingen betalt tier) | ⚠️ (CLI gratis, men avanserte funksjoner bak betalt Atlas Cloud) | ✅ (gratis, ingen betalt tier) |
+| Innsamling av bruksdata | ✅ (ingen — eds sender ingenting til noe sted) | ⚠️ (telemetri aktiv som standard, opt-out via miljøvariabel — [Redgate-dokumentasjon](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)) | ✅ (ingen telemetri funnet i deres dokumentasjon/repo) | ⚠️ (telemetri aktiv som standard — kjørte kommandoer, OS, vertsmaskin — opt-out via miljøvariabel — [Atlas sin personverndokumentasjon](https://atlasgo.io/cli/data-privacy)) | ✅ (ingen telemetri funnet. Elixirs `:telemetry`-bibliotek er lokal instrumentering/hooks, ikke analyse som sender data ut) |
+| Lisens | MIT | Community gratis / Teams betalt | MIT | Apache 2.0 (betalte cloud-funksjoner) | Apache 2.0 |
 
-### Funksjoner og modenhet
+### Funksjoner og modenhetsgrad
 
-| | **eds** | Flyway | golang-migrate | Atlas |
-|---|---|---|---|---|
-| Runtime-avhengighet | ✅ (ingen — enkelt binær, innebygger ERTS) | ❌ (krever en JVM, eller deres CLI som innebygger én) | ✅ (ingen — enkelt Go-binær) | ✅ (ingen — enkelt Go-binær) |
-| Databasestøtte | ❌ (kun PostgreSQL) | ✅ (PostgreSQL, MySQL, Oracle og mer) | ✅ (mange) | ✅ (mange) |
-| Transaksjonelle migreringer | ✅ (per fil) | ✅ | ⚠️ (avhengig av driver) | ✅ |
-| Tilbakerolling | ✅ (`migrate down`, håndskrevne `.down.sql`) | ❌ (kun Teams/Enterprise-tier) | ✅ (håndskrevne down-skript) | ✅ (automatisk beregnet revers diff) |
-| Kontrollsum-drift-deteksjon | ✅ (blokkerer som standard) | ✅ | ❌ | ✅ (via lint) |
-| Konkurrenslåsing | ✅ (Postgres rådgivende lås) | ✅ | ⚠️ (avhengig av driver) | ✅ |
-| Dry-run / forhåndsvisning | ✅ | ❌ (kun Enterprise) | ❌ | ✅ (`migrate lint`) |
-| JSON-utdata for CI | ✅ | ⚠️ (begrenset) | ❌ | ✅ |
-| Omtrentlig binær/lastestørrelse | ~40–60 MB* (innebygger Erlang-runtime) | ~100+ MB (innebygger JRE) | ~10–20 MB (nativt Go-binær) | ~15–25 MB (nativt Go-binær) |
-| Modenhet | ❌ (nytt) | ✅ (10+ år, bredt adoptert) | ✅ (10+ år, bredt adoptert) | ⚠️ (nyere, vokser raskt) |
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| Runtime-avhengighet | ✅ (ingen — enkelt binær, innebygger ERTS) | ❌ (krever JVM, eller deres CLI som innebygger en) | ✅ (ingen — enkelt Go-binær) | ✅ (ingen — enkelt Go-binær) | ❌ (krever Elixir + Erlang/OTP + Mix installert — et bibliotek, ikke et selvstendig binær) |
+| Databasestøtte | ❌ (kun PostgreSQL) | ✅ (PostgreSQL, MySQL, Oracle og mer) | ✅ (mange) | ✅ (mange) | ✅ (PostgreSQL, MySQL, SQLite, MSSQL og mer via adapters) |
+| Transaksjonsbaserte migrasjoner | ✅ (per fil) | ✅ | ⚠️ (driver-avhengig) | ✅ | ✅ |
+| Rollback | ✅ (`migrate down`, håndskrevne `.down.sql`) | ❌ (kun Teams/Enterprise) | ✅ (håndskrevne down-skript) | ✅ (automatisk beregnet reverse diff) | ✅ (`mix ecto.rollback`, håndskrevne `down`/`change`) |
+| Checksum-drift-deteksjon | ✅ (blokkerer som standard) | ✅ | ❌ | ✅ (via lint) | ❌ (ikke funnet i Ecto-kjernen) |
+| Konkurrenslås | ✅ (Postgres advisory lock, alltid aktiv) | ✅ | ⚠️ (driver-avhengig) | ✅ | ⚠️ (table lock som standard; advisory lock tilgjengelig men må konfigureres) |
+| Dry-run / forhåndsvisning | ✅ | ❌ (kun Enterprise) | ❌ | ✅ (`migrate lint`) | ⚠️ (`mix ecto.migrations` viser ventende status, ikke en ekte SQL-forhåndsvisning) |
+| JSON-output for CI | ✅ | ⚠️ (begrenset) | ❌ | ✅ | ❌ (standard Mix-task-output er tekstuell) |
+| Omtrentlig binær/download-størrelse | ~40–60 MB* (innebygger Erlang-runtime) | ~100+ MB (innebygger JRE) | ~10–20 MB (nativt Go-binær) | ~15–25 MB (nativt Go-binær) | N/A (bibliotek, ikke et distribuert binær) |
+| Modenhetsgrad | ❌ (nytt) | ✅ (10+ år, vidt utbredt) | ✅ (10+ år, vidt utbredt) | ⚠️ (nyere, vokser raskt) | ✅ (kjernen i Elixir/Phoenix-økosystemet siden 2015) |
 
-\* Størrelsesfigurer er omtrentlige og endres mellom utgaver — sjekk `ls -lh` på din egen nedlastede `eds`-binær og hver verktøys siste utgivelsesside for nøyaktige gjeldende tall i stedet for å stole på denne tabellen.   
-
+\* Størrelsesangivelsene er omtrentlige og endres mellom utgaver — sjekk med `ls -lh` på ditt nedlastede `eds`-binær og hver verktøys nyeste utgave-side for nøyaktige tall.   
 
 ## Sikkerhet
 

@@ -49,38 +49,38 @@ Al utilizar esta Herramienta, usted reconoce haber leído, comprendido y aceptad
 
 1. Construir, ejecutar y verificar cambios en el esquema de la base de datos mediante comandos simples.
 2. Cero dependencias para el usuario final.
+-- 
+## Comparación de eds con las herramientas líderes
 
-## Cómo se compara eds con los grandes
+_eds es una herramienta nueva — estas son herramientas consolidadas y ampliamente adoptadas. Aquí hay una mirada honesta sobre dónde encaja eds y dónde aún no llega._
 
-_eds es nuevo — estos son herramientas consolidadas y ampliamente adoptadas. Aquí hay una mirada honesta sobre dónde encaja eds y dónde no (aún)._
+**Dónde encaja eds:** una CLI pequeña y sin dependencias, para equipos que usan PostgreSQL y quieren seguridad al estilo Flyway (transacciones, checksums, locks) sin JVM ni plan de pago — no es adecuado si necesitas soporte multi-base de datos, si ya estás profundamente en Atlas/Flyway, o si estás construyendo una app Elixir donde Ecto es la opción natural.
 
-**Dónde encaja eds:** una CLI pequeña, sin dependencias, para equipos en Postgres que buscan seguridad estilo Flyway (transacciones, sumas de verificación, bloqueo) sin una JVM ni un tier de pago — no es adecuada si necesita soporte multi-base de datos o ya está profundamente inmerso en un entorno Atlas/Flyway.
+### Costo, recopilación de datos y licencia
 
-### Coste, datos y licencias
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| Costo | ✅ (gratis, sin plan de pago — todas las funciones incluidas) | ⚠️ (núcleo gratis, pero rollback/dry-run requieren Teams/Enterprise de pago) | ✅ (gratis, sin plan de pago) | ⚠️ (CLI gratis, pero funciones avanzadas tras Atlas Cloud de pago) | ✅ (gratis, sin plan de pago) |
+| Recopilación de datos de uso | ✅ (ninguna — eds no envía nada a ningún lugar) | ⚠️ (telemetría activada por defecto, opt-out vía variable de entorno — [Docs de Redgate](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)) | ✅ (no se encontró telemetría en sus docs/repo) | ⚠️ (telemetría activada por defecto — comandos ejecutados, OS, hostname — opt-out vía variable de entorno — [Docs de privacidad de Atlas](https://atlasgo.io/cli/data-privacy)) | ✅ (no se encontró telemetría. La librería `:telemetry` de Elixir es instrumentación/hooks local, no analítica que envía datos externamente) |
+| Licencia | MIT | Comunidad gratis / Teams de pago | MIT | Apache 2.0 (funciones cloud de pago) | Apache 2.0 |
 
-| | **eds** | Flyway | golang-migrate | Atlas |
-|---|---|---|---|---|
-| Coste | ✅ (gratis, sin tier de pago — todas las funcionalidades incluidas) | ⚠️ (núcleo gratis, pero rollback/dry-run requieren Teams/Enterprise de pago) | ✅ (gratis, sin tier de pago) | ⚠️ (CLI gratis, pero funcionalidades avanzadas detrás de Atlas Cloud de pago) |
-| Recopilación de datos de uso | ✅ (ninguna — eds no envía nada a ningún sitio) | ⚠️ (telemetría activada por defecto, opt-out mediante variable de entorno — [documentación de Redgate](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)) | ✅ (no se ha encontrado telemetría en su documentación/repo) | ⚠️ (telemetría activada por defecto — comandos ejecutados, SO, nombre del host — opt-out mediante variable de entorno — [documentación de privacidad de Atlas](https://atlasgo.io/cli/data-privacy)) |
-| Licencia | MIT | Community gratis / Teams de pago | MIT | Apache 2.0 (funcionalidades cloud de pago) |
+### Funciones y madurez
 
-### Funcionalidades y madurez
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| Dependencia de runtime | ✅ (ninguna — binario único, incluye ERTS) | ❌ (requiere JVM, o su CLI que incluye una) | ✅ (ninguna — binario Go único) | ✅ (ninguna — binario Go único) | ❌ (requiere Elixir + Erlang/OTP + Mix instalado — es una librería, no un binario standalone) |
+| Soporte de bases de datos | ❌ (solo PostgreSQL) | ✅ (PostgreSQL, MySQL, Oracle, y más) | ✅ (muchas) | ✅ (muchas) | ✅ (PostgreSQL, MySQL, SQLite, MSSQL, y más vía adapters) |
+| Migraciones transaccionales | ✅ (por archivo) | ✅ | ⚠️ (depende del driver) | ✅ | ✅ |
+| Rollback | ✅ (`migrate down`, `.down.sql` escritos a mano) | ❌ (solo plan Teams/Enterprise) | ✅ (scripts down escritos a mano) | ✅ (diff inverso calculado automáticamente) | ✅ (`mix ecto.rollback`, `down`/`change` escritos a mano) |
+| Detección de drift de checksum | ✅ (bloquea por defecto) | ✅ | ❌ | ✅ (vía lint) | ❌ (no se encontró en el core de Ecto) |
+| Lock de concurrencia | ✅ (advisory lock de Postgres, siempre activo) | ✅ | ⚠️ (depende del driver) | ✅ | ⚠️ (table lock por defecto; advisory lock disponible pero requiere configuración) |
+| Dry-run / preview | ✅ | ❌ (solo Enterprise) | ❌ | ✅ (`migrate lint`) | ⚠️ (`mix ecto.migrations` muestra estado pendiente, no es una preview SQL real) |
+| Salida JSON para CI | ✅ | ⚠️ (limitada) | ❌ | ✅ | ❌ (la salida estándar de tareas Mix es textual) |
+| Tamaño aproximado de binario/descarga | ~40–60 MB* (incluye runtime de Erlang) | ~100+ MB (incluye JRE) | ~10–20 MB (binario Go nativo) | ~15–25 MB (binario Go nativo) | N/A (librería, no un binario distribuido) |
+| Madurez | ❌ (nuevo) | ✅ (10+ años, ampliamente adoptado) | ✅ (10+ años, ampliamente adoptado) | ⚠️ (más reciente, creciendo rápido) | ✅ (parte central del ecosistema Elixir/Phoenix desde 2015) |
 
-| | **eds** | Flyway | golang-migrate | Atlas |
-|---|---|---|---|---|
-| Dependencia de runtime | ✅ (ninguna — binario único, incluye ERTS) | ❌ (requiere una JVM, o su CLI que incluye una) | ✅ (ninguna — binario Go único) | ✅ (ninguna — binario Go único) |
-| Soporte de bases de datos | ❌ (solo PostgreSQL) | ✅ (PostgreSQL, MySQL, Oracle y más) | ✅ (muchas) | ✅ (muchas) |
-| Migraciones transaccionales | ✅ (por archivo) | ✅ | ⚠️ (depende del controlador) | ✅ |
-| Reversión | ✅ (`migrate down`, `.down.sql` escritos a mano) | ❌ (solo tier Teams/Enterprise) | ✅ (scripts down escritos a mano) | ✅ (reverse diff calculado automáticamente) |
-| Detección de deriva de sumas de verificación | ✅ (bloquea por defecto) | ✅ | ❌ | ✅ (vía lint) |
-| Bloqueo de concurrencia | ✅ (bloqueo consultivo de Postgres) | ✅ | ⚠️ (depende del controlador) | ✅ |
-| Dry-run / vista previa | ✅ | ❌ (solo Enterprise) | ❌ | ✅ (`migrate lint`) |
-| Salida JSON para CI | ✅ | ⚠️ (limitada) | ❌ | ✅ |
-| Tamaño aproximado del binario/descarga | ~40–60 MB* (incluye runtime de Erlang) | ~100+ MB (incluye JRE) | ~10–20 MB (binario Go nativo) | ~15–25 MB (binario Go nativo) |
-| Madurez | ❌ (nuevo) | ✅ (10+ años, ampliamente adoptado) | ✅ (10+ años, ampliamente adoptado) | ⚠️ (más nuevo, en rápido crecimiento) |
-
-\* Las cifras de tamaño son aproximadas y cambian entre versiones — compruebe `ls -lh` en su propio binario `eds` descargado y la página de última versión de cada herramienta para los números actuales exactos en lugar de confiar en esta tabla.   
-
+\* Las cifras de tamaño son aproximadas y cambian entre releases — verifica con `ls -lh` en tu binario `eds` descargado y en la página de release más reciente de cada herramienta para obtener los números exactos actuales.   
+-- 
 ## Seguridad
 
 <!-- CHECKSUMS-START -->
