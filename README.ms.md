@@ -51,37 +51,38 @@ Dengan menggunakan Alat ini, anda mengiktiraf bahawa anda telah membaca, memaham
 1. Membina, menjalankan, dan mengesahkan perubahan skema pangkalan data melalui arahan mudah.
 2. Sifar kebergantungan untuk pengguna akhir.
 
-## Perbandingan eds dengan pemain utama
+-- 
+## Perbandingan eds dengan tools utama
 
-_eds adalah baharu — ini adalah alat yang mapan dan diterima secara meluas. Berikut adalah pandangan jujur tentang di mana eds sesuai dan di mana ia belum._
+_eds ialah tool baharu — yang berikut ialah tools yang sudah mapan dan banyak diadaptasi. Berikut pandangan jujur tentang di mana eds sesuai dan di mana ia (belum) mampu._
 
-**Di mana eds sesuai:** CLI kecil, bebas kebergantungan untuk pasukan pada Postgres yang ingin keselamatan gaya Flyway (transaksi, jumlah semakan, penguncian) tanpa JVM atau tier berbayar — tidak sesuai jika anda memerlukan sokongan pelbagai pangkalan data atau sudah mendalam dalam persediaan Atlas/Flyway.
+**Di mana eds sesuai:** CLI kecil tanpa kebergantungan, untuk pasukan yang menggunakan PostgreSQL dan ingin keselamatan ala Flyway (transaksi, checksum, locking) tanpa JVM atau tier berbayar — tidak sesuai jika anda perlu sokongan multi-database, jika anda sudah mendalam dalam ekosistem Atlas/Flyway, atau jika anda membina aplikasi Elixir di mana Ecto ialah pilihan semula jadi.
 
-### Kos, data, dan lesen
+### Kos, pengumpulan data, dan lesen
 
-| | **eds** | Flyway | golang-migrate | Atlas |
-|---|---|---|---|---|
-| Kos | ✅ (percuma, tiada tier berbayar — semua ciri termasuk) | ⚠️ (teras percuma, tetapi pengunduran/dry-run memerlukan Teams/Enterprise berbayar) | ✅ (percuma, tiada tier berbayar) | ⚠️ (CLI percuma, tetapi ciri lanjutan dikunci di belakang Atlas Cloud berbayar) |
-| Pengumpulan data penggunaan | ✅ (tiada — eds tidak menghantar apa-apa ke mana-mana) | ⚠️ (telemetri aktif secara lalai, opt-out melalui pemboleh ubah persekitaran — [dokumen Redgate](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)) | ✅ (tiada telemetri ditemui dalam dokumen/repo mereka) | ⚠️ (telemetri aktif secara lalai — arahan dijalankan, OS, nama hos — opt-out melalui pemboleh ubah persekitaran — [dokumen privasi Atlas sendiri](https://atlasgo.io/cli/data-privacy)) |
-| Lesen | MIT | Community percuma / Teams berbayar | MIT | Apache 2.0 (ciri awan berbayar) |
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| Kos | ✅ (percuma, tanpa tier berbayar — semua ciri disertakan) | ⚠️ (teras percuma, tetapi rollback/dry-run memerlukan Teams/Enterprise berbayar) | ✅ (percuma, tanpa tier berbayar) | ⚠️ (CLI percuma, tetapi ciri lanjutan di sebalik Atlas Cloud berbayar) | ✅ (percuma, tanpa tier berbayar) |
+| Pengumpulan data penggunaan | ✅ (tiada — eds tidak menghantar apa-apa ke mana-mana) | ⚠️ (telemetri aktif secara lalai, opt-out melalui pemboleh ubah persekitaran — [Dokumentasi Redgate](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)) | ✅ (tiada telemetri ditemui dalam dokumentasi/repo mereka) | ⚠️ (telemetri aktif secara lalai — arahan yang dijalankan, OS, hostname — opt-out melalui pemboleh ubah persekitaran — [Dokumentasi privasi Atlas](https://atlasgo.io/cli/data-privacy)) | ✅ (tiada telemetri ditemui. Perpustakaan `:telemetry` Elixir ialah instrumentasi/hooks tempatan, bukan analitik yang menghantar data keluar) |
+| Lesen | MIT | Komuniti percuma / Teams berbayar | MIT | Apache 2.0 (ciri cloud berbayar) | Apache 2.0 |
 
-### Ciri-ciri dan kematangan
+### Ciri dan kematangan
 
-| | **eds** | Flyway | golang-migrate | Atlas |
-|---|---|---|---|---|
-| Kebergantungan runtime | ✅ (tiada — satu binari, mengandungi ERTS) | ❌ (memerlukan JVM, atau CLI mereka yang mengandungi satu) | ✅ (tiada — satu binari Go) | ✅ (tiada — satu binari Go) |
-| Sokongan pangkalan data | ❌ (PostgreSQL sahaja) | ✅ (PostgreSQL, MySQL, Oracle, dan lain-lain) | ✅ (banyak) | ✅ (banyak) |
-| Migrasi transaksional | ✅ (per fail) | ✅ | ⚠️ (bergantung pada pemacu) | ✅ |
-| Pengunduran | ✅ (`migrate down`, `.down.sql` tulisan tangan) | ❌ (tier Teams/Enterprise sahaja) | ✅ (skrip down tulisan tangan) | ✅ (beza songsang dikira secara automatik) |
-| Pengesanan hanyutan jumlah semakan | ✅ (memblok secara lalai) | ✅ | ❌ | ✅ (melalui lint) |
-| Kunci serentak | ✅ (kunci nasihat Postgres) | ✅ | ⚠️ (bergantung pada pemacu) | ✅ |
-| Dry-run / pratonton | ✅ | ❌ (Enterprise sahaja) | ❌ | ✅ (`migrate lint`) |
-| Output JSON untuk CI | ✅ | ⚠️ (terhad) | ❌ | ✅ |
-| Saiz binari/muat turun anggaran | ~40–60 MB* (mengandungi runtime Erlang) | ~100+ MB (mengandungi JRE) | ~10–20 MB (binari Go asli) | ~15–25 MB (binari Go asli) |
-| Kematangan | ❌ (baharu) | ✅ (10+ tahun, diterima secara meluas) | ✅ (10+ tahun, diterima secara meluas) | ⚠️ (lebih baharu, berkembang pesat) |
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| Kebergantungan runtime | ✅ (tiada — satu binary, mengandungi ERTS) | ❌ (memerlukan JVM, atau CLI mereka yang mengandungi JVM) | ✅ (tiada — satu binary Go) | ✅ (tiada — satu binary Go) | ❌ (memerlukan Elixir + Erlang/OTP + Mix dipasang — ini perpustakaan, bukan binary berdiri sendiri) |
+| Sokongan database | ❌ (PostgreSQL sahaja) | ✅ (PostgreSQL, MySQL, Oracle, dan lain-lain) | ✅ (banyak) | ✅ (banyak) | ✅ (PostgreSQL, MySQL, SQLite, MSSQL, dan lain-lain melalui adapter) |
+| Migrasi transaksional | ✅ (per fail) | ✅ | ⚠️ (bergantung pada driver) | ✅ | ✅ |
+| Rollback | ✅ (`migrate down`, `.down.sql` ditulis secara manual) | ❌ (tier Teams/Enterprise sahaja) | ✅ (skrip down ditulis secara manual) | ✅ (reverse diff dikira secara automatik) | ✅ (`mix ecto.rollback`, `down`/`change` ditulis secara manual) |
+| Pengesanan drift checksum | ✅ (memblok secara lalai) | ✅ | ❌ | ✅ (melalui lint) | ❌ (tiada yang ditemui dalam teras Ecto) |
+| Kunci konkurensi | ✅ (advisory lock Postgres, sentiasa aktif) | ✅ | ⚠️ (bergantung pada driver) | ✅ | ⚠️ (table lock secara lalai; advisory lock tersedia tetapi perlu dikonfigurasi) |
+| Dry-run / pratonton | ✅ | ❌ (Enterprise sahaja) | ❌ | ✅ (`migrate lint`) | ⚠️ (`mix ecto.migrations` memaparkan status tertangguh, bukan pratonton SQL sebenar) |
+| Output JSON untuk CI | ✅ | ⚠️ (terhad) | ❌ | ✅ | ❌ (output tugas Mix piawai bersifat teks) |
+| Saiz binary/muat turun anggaran | ~40–60 MB* (mengandungi runtime Erlang) | ~100+ MB (mengandungi JRE) | ~10–20 MB (binary Go asli) | ~15–25 MB (binary Go asli) | N/A (perpustakaan, bukan binary yang diedarkan) |
+| Kematangan | ❌ (baharu) | ✅ (10+ tahun, banyak diadaptasi) | ✅ (10+ tahun, banyak diadaptasi) | ⚠️ (lebih baharu, berkembang pesat) | ✅ (teras ekosistem Elixir/Phoenix sejak 2015) |
 
-\* Angka saiz adalah anggaran dan berubah antara edisi — semak `ls -lh` pada binari `eds` anda sendiri yang dimuat turun dan halaman edisi terkini setiap alat untuk angka semasa yang tepat, bukan bergantung pada jadual ini.   
-
+\* Angka saiz adalah anggaran dan berubah antara rilis — semak dengan `ls -lh` pada binary `eds` yang anda muat turun dan halaman rilis terkini setiap tool untuk angka yang tepat.   
+-- 
 ## Keselamatan
 
 <!-- CHECKSUMS-START -->

@@ -51,36 +51,38 @@
 *   通过简单命令构建、运行和验证数据库架构变更。
 *   终端用户零依赖。   
 
-## eds 与重量级工具的对比
+-- 
+## eds 与主流工具的对比
 
-_eds 是新的——而这些都是成熟的、被广泛采用的工具。以下是 eds 所处位置的诚实评估，以及它（目前）尚不擅长的地方。_
+_eds 是一个新工具 — 以下这些是已经成熟且被广泛采用的工具。这里诚实地看看 eds 适合什么场景，以及（目前）还不适合什么。_
 
-**eds 的适用场景：** 一个小型、零依赖的 CLI，适合使用 Postgres 的团队，希望获得 Flyway 级别的安全性（事务、校验和、锁），但不需要 JVM 或付费层级。如果你需要多数据库支持，或者已经深度使用 Atlas/Flyway，则不适合。   
+**eds 适合的场景：** 一个轻量、零依赖的 CLI，面向使用 PostgreSQL 的团队，想要 Flyway 级别的安全性（事务、校验和、锁）但不需要 JVM 或付费套餐 — 如果你需要多数据库支持、已经深度使用 Atlas/Flyway、或者正在构建 Elixir 应用（Ecto 是自然选择），则不适合。
 
-| | **eds** | Flyway | golang-migrate | Atlas |
-|---|---|---|---|---|
-| 费用 | ✅（免费，无付费层级——所有功能均包含在内） | ⚠️（核心免费，但回滚/试运行需要付费的 Teams/Enterprise） | ✅（免费，无付费层级） | ⚠️（CLI 免费，但高级功能需付费的 Atlas Cloud） |
-| 使用数据收集 | ✅（无——eds 不向任何地方发送数据） | ⚠️（默认开启遥测，通过环境变量可关闭——[Redgate 文档](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)） | ✅（其文档/仓库中未发现遥测） | ⚠️（默认开启遥测——命令执行、操作系统、主机名——通过环境变量可关闭——[Atlas 官方隐私文档](https://atlasgo.io/cli/data-privacy)） |
-| 许可证 | MIT | 社区免费 / Teams 付费 | MIT | Apache 2.0（云功能付费） |
+### 成本、数据收集与许可证
+
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| 成本 | ✅（免费，无付费套餐 — 所有功能均包含） | ⚠️（核心免费，但回滚/干运行需要付费的 Teams/Enterprise） | ✅（免费，无付费套餐） | ⚠️（CLI 免费，但高级功能在付费的 Atlas Cloud 后面） | ✅（免费，无付费套餐） |
+| 使用数据收集 | ✅（无 — eds 不向任何地方发送任何数据） | ⚠️（遥测默认开启，可通过环境变量关闭 — [Redgate 文档](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)） | ✅（其文档/仓库中未发现遥测） | ⚠️（遥测默认开启 — 执行的命令、操作系统、主机名 — 可通过环境变量关闭 — [Atlas 隐私文档](https://atlasgo.io/cli/data-privacy)） | ✅（未发现遥测。Elixir 的 `:telemetry` 库是本地 instrumentation/hooks，不是向外发送数据的分析） |
+| 许可证 | MIT | 社区免费 / Teams 付费 | MIT | Apache 2.0（付费云功能） | Apache 2.0 |
 
 ### 功能与成熟度
 
-| | **eds** | Flyway | golang-migrate | Atlas |
-|---|---|---|---|---|
-| 运行时依赖 | ✅（无——单一二进制文件，内置 ERTS） | ❌（需要 JVM，或其 CLI 内置一个） | ✅（无——单一 Go 二进制文件） | ✅（无——单一 Go 二进制文件） |
-| 数据库支持 | ❌（仅 PostgreSQL） | ✅（PostgreSQL、MySQL、Oracle 等） | ✅（多种） | ✅（多种） |
-| 事务性迁移 | ✅（按文件） | ✅ | ⚠️（取决于驱动） | ✅ |
-| 回滚 | ✅（`migrate down`，手写 `.down.sql`） | ❌（仅 Teams/Enterprise 层级） | ✅（手写 down 脚本） | ✅（自动计算反向 diff） |
-| 校验和漂移检测 | ✅（默认阻止） | ✅ | ❌ | ✅（通过 lint） |
-| 并发锁 | ✅（Postgres 咨询锁） | ✅ | ⚠️（取决于驱动） | ✅ |
-| 试运行 / 预览 | ✅ | ❌（仅 Enterprise） | ❌ | ✅（`migrate lint`） |
-| JSON 输出（用于 CI） | ✅ | ⚠️（有限） | ❌ | ✅ |
-| 二进制/下载大小（约） | ~40–60 MB*（内置 Erlang 运行时） | ~100+ MB（内置 JRE） | ~10–20 MB（原生 Go 二进制文件） | ~15–25 MB（原生 Go 二进制文件） |
-| 成熟度 | ❌（新） | ✅（10+ 年，广泛采用） | ✅（10+ 年，广泛采用） | ⚠️（较新，增长迅速） |
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| 运行时依赖 | ✅（无 — 单一二进制文件，内嵌 ERTS） | ❌（需要 JVM，或其 CLI 内嵌 JVM） | ✅（无 — 单一 Go 二进制文件） | ✅（无 — 单一 Go 二进制文件） | ❌（需要安装 Elixir + Erlang/OTP + Mix — 是库，不是独立二进制文件） |
+| 数据库支持 | ❌（仅 PostgreSQL） | ✅（PostgreSQL、MySQL、Oracle 等） | ✅（多种） | ✅（多种） | ✅（PostgreSQL、MySQL、SQLite、MSSQL 等，通过适配器） |
+| 事务性迁移 | ✅（按文件） | ✅ | ⚠️（取决于驱动） | ✅ | ✅ |
+| 回滚 | ✅（`migrate down`，手写 `.down.sql`） | ❌（仅 Teams/Enterprise） | ✅（手写 down 脚本） | ✅（自动计算反向 diff） | ✅（`mix ecto.rollback`，手写 `down`/`change`） |
+| 校验和漂移检测 | ✅（默认阻止） | ✅ | ❌ | ✅（通过 lint） | ❌（Ecto 核心中未发现） |
+| 并发锁 | ✅（Postgres advisory lock，始终开启） | ✅ | ⚠️（取决于驱动） | ✅ | ⚠️（默认 table lock；advisory lock 可用但需配置） |
+| 干运行 / 预览 | ✅ | ❌（仅 Enterprise） | ❌ | ✅（`migrate lint`） | ⚠️（`mix ecto.migrations` 显示待执行状态，非真正的 SQL 预览） |
+| CI 用 JSON 输出 | ✅ | ⚠️（有限） | ❌ | ✅ | ❌（标准 Mix task 输出为文本） |
+| 大致二进制/下载大小 | ~40–60 MB*（内嵌 Erlang 运行时） | ~100+ MB（内嵌 JRE） | ~10–20 MB（原生 Go 二进制文件） | ~15–25 MB（原生 Go 二进制文件） | N/A（库，非分发的二进制文件） |
+| 成熟度 | ❌（新） | ✅（10+ 年，广泛采用） | ✅（10+ 年，广泛采用） | ⚠️（较新，增长迅速） | ✅（2015 年起 Elixir/Phoenix 生态核心） |
 
-\* 大小数据为近似值，各版本之间会变化——请在你自己下载的 `eds` 二进制文件上使用 `ls -lh` 查看，并查阅各工具的最新发布页面获取当前精确数字，而非依赖此表。   
-
-
+\* 大小数字为近似值，各版本之间会变化 — 请用 `ls -lh` 检查你下载的 `eds` 二进制文件，并查看各工具最新 release 页面获取当前精确数字。   
+-- 
 <!-- CHECKSUMS-START -->
 ### 🔒 发布 v0.8.9 的 SHA256 校验和
 

@@ -52,7 +52,39 @@ Verantwortung des Nutzers:
 
 *   Datenbank-Schemawechsel über einfache Befehle erstellen, ausführen und verifizieren.
 *   Keine Abhängigkeiten für den Endbenutzer.
-  
+-- 
+## Vergleich von eds mit den etablierten Tools
+
+_eds ist ein neues Tool — die folgenden sind etablierte, weit verbreitete Tools. Hier ein ehrlicher Blick darauf, wo eds passt und wo es (noch) nicht reicht._
+
+**Wo eds passt:** eine kleine, abhängigkeitsfreie CLI für Teams auf PostgreSQL, die Flyway-ähnliche Sicherheit (Transaktionen, Checksums, Locking) ohne JVM oder kostenpflichtiges Tier wollen — nicht geeignet, wenn Multi-Datenbank-Unterstützung benötigt wird, wenn man bereits tief in Atlas/Flyway steckt, oder wenn man eine Elixir-App baut, bei der Ecto die natürliche Wahl ist.
+
+### Kosten, Datenerhebung und Lizenz
+
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| Kosten | ✅ (kostenlos, kein bezahltes Tier — alle Funktionen enthalten) | ⚠️ (Kern kostenlos, aber Rollback/Dry-Run erfordern bezahltes Teams/Enterprise) | ✅ (kostenlos, kein bezahltes Tier) | ⚠️ (CLI kostenlos, aber fortgeschrittene Funktionen hinter bezahltem Atlas Cloud) | ✅ (kostenlos, kein bezahltes Tier) |
+| Datenerhebung zur Nutzung | ✅ (keine — eds sendet nichts irgendwohin) | ⚠️ (Telemetrie standardmäßig aktiv, Opt-out über Umgebungsvariable — [Redgate-Docs](https://documentation.red-gate.com/fd/redgate-disable-telemetry-environment-variable-277579301.html)) | ✅ (keine Telemetrie in deren Docs/Repo gefunden) | ⚠️ (Telemetrie standardmäßig aktiv — ausgeführte Befehle, OS, Hostname — Opt-out über Umgebungsvariable — [Atlas-Datenschutz-Docs](https://atlasgo.io/cli/data-privacy)) | ✅ (keine Telemetrie gefunden. Elixirs `:telemetry`-Bibliothek ist lokale Instrumentierung/Hooks, keine externe Analyse) |
+| Lizenz | MIT | Community kostenlos / Teams bezahlt | MIT | Apache 2.0 (bezahlte Cloud-Funktionen) | Apache 2.0 |
+
+### Funktionen und Reifegrad
+
+| | **eds** | Flyway | golang-migrate | Atlas | Ecto |
+|---|---|---|---|---|---|
+| Runtime-Abhängigkeit | ✅ (keine — einzelnes Binary, bündelt ERTS) | ❌ (benötigt eine JVM, oder deren CLI, die eine bündelt) | ✅ (keine — einzelnes Go-Binary) | ✅ (keine — einzelnes Go-Binary) | ❌ (benötigt Elixir + Erlang/OTP + Mix installiert — eine Bibliothek, kein standalone Binary) |
+| Datenbank-Unterstützung | ❌ (nur PostgreSQL) | ✅ (PostgreSQL, MySQL, Oracle und mehr) | ✅ (viele) | ✅ (viele) | ✅ (PostgreSQL, MySQL, SQLite, MSSQL und mehr via Adapter) |
+| Transaktionale Migrationen | ✅ (pro Datei) | ✅ | ⚠️ (treiberabhängig) | ✅ | ✅ |
+| Rollback | ✅ (`migrate down`, handgeschriebene `.down.sql`) | ❌ (nur Teams/Enterprise) | ✅ (handgeschriebene Down-Skripte) | ✅ (automatisch berechnetes Reverse-Diff) | ✅ (`mix ecto.rollback`, handgeschriebene `down`/`change`) |
+| Checksum-Drift-Erkennung | ✅ (blockiert standardmäßig) | ✅ | ❌ | ✅ (via lint) | ❌ (in Ecto-Core nicht gefunden) |
+| Concurrency-Lock | ✅ (Postgres Advisory Lock, immer aktiv) | ✅ | ⚠️ (treiberabhängig) | ✅ | ⚠️ (Table Lock standardmäßig; Advisory Lock verfügbar, aber muss konfiguriert werden) |
+| Dry-Run / Vorschau | ✅ | ❌ (nur Enterprise) | ❌ | ✅ (`migrate lint`) | ⚠️ (`mix ecto.migrations` zeigt ausstehenden Status, keine echte SQL-Vorschau) |
+| JSON-Ausgabe für CI | ✅ | ⚠️ (begrenzt) | ❌ | ✅ | ❌ (Standard-Mix-Task-Ausgabe ist textuell) |
+| Ungefähre Binary/Download-Größe | ~40–60 MB* (bündelt Erlang-Runtime) | ~100+ MB (bündelt JRE) | ~10–20 MB (natives Go-Binary) | ~15–25 MB (natives Go-Binary) | N/A (Bibliothek, kein distribuiertes Binary) |
+| Reifegrad | ❌ (neu) | ✅ (10+ Jahre, weit verbreitet) | ✅ (10+ Jahre, weit verbreitet) | ⚠️ (jünger, wächst schnell) | ✅ (Kern des Elixir/Phoenix-Ökosystems seit 2015) |
+
+\* Größenangaben sind annähernd und ändern sich zwischen Releases — prüft mit `ls -lh` euer heruntergeladenes `eds`-Binary und die jeweils neueste Release-Seite jedes Tools für aktuelle exakte Zahlen.   
+
+--   
 
 ## Sicherheit
 
