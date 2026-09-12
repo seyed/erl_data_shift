@@ -89,12 +89,12 @@ _eds は新しいうちのツールです。ここでは確立された広く採
 
 ---
 <!-- CHECKSUMS-START -->
-### 🔒 リリース v0.8.9 の SHA256 チェックサム
+### 🔒 リリース v0.9.0 の SHA256 チェックサム
 
 ```
-da04b5dcd5a146f4231e99e429335c7f82ac39e2e3a9e05abff7578222ed8729  eds-linux-x86_64
-4940f53560beac56cca6aa454caf1ef8911b891e44678b13ac4ce3e748aad7a0  eds-macos-arm64
-8e95964c4595df3aa2b52571aab5f64248a82eaf8798e37fa7765456332b04cc  eds-windows-x86_64
+be6b4fb705849ea6a39eefb7cb2588ea53ac85fd36e69a7cabe9ca2e82f5d4f6  eds-linux-x86_64
+a883258573b3b1c389f90209497861d6eeefcbaef2624bbd50cb2b08a7717923  eds-macos-arm64
+c286b463b130481c243dcc9341aa32a1709c0097fd45cdd8dcd6299abff645d9  eds-windows-x86_64
 ```
 <!-- CHECKSUMS-END -->
 セキュリティに関するお問い合わせ： seyed@swiftter.com
