@@ -1234,3 +1234,22 @@ migrate_dry_run_json_no_pending_test() ->
     meck:unload(erl_data_shift_migrator),
     meck:unload(erl_data_shift_env),
     file:del_dir_r(Dir).
+
+%% -- migrate dry-run with dash-free 'path' keyword (regression) --
+
+migrate_dry_run_with_dash_free_path_keyword_test() ->
+    Dir = "/tmp/eds_app_dry_run_dashfree_path_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, dry_run, fun(_Env, D) ->
+        ?assertEqual(Dir, D),
+        {ok, []}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "dry-run", "path", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).

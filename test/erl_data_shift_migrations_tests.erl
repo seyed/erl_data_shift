@@ -141,3 +141,21 @@ resolve_dir_preserves_force_token_test() ->
     {Dir, Rest} = erl_data_shift_migrations:resolve_dir(["force", "-f", "/tmp/x"]),
     ?assertEqual("/tmp/x", Dir),
     ?assertEqual(["force"], Rest).
+
+%% Dash-free "path" keyword, preferred for packaged binary usage since
+%% dash-prefixed args elsewhere in the list have previously been swallowed
+%% by relx's launcher (see the --version/--help fix).
+resolve_dir_uses_dash_free_path_keyword_test() ->
+    {Dir, Rest} = erl_data_shift_migrations:resolve_dir(["path", "/tmp/custom_migrations"]),
+    ?assertEqual("/tmp/custom_migrations", Dir),
+    ?assertEqual([], Rest).
+
+resolve_dir_preserves_tokens_before_dash_free_path_test() ->
+    {Dir, Rest} = erl_data_shift_migrations:resolve_dir(["dry-run", "path", "/tmp/x"]),
+    ?assertEqual("/tmp/x", Dir),
+    ?assertEqual(["dry-run"], Rest).
+
+resolve_dir_dash_free_path_works_with_down_test() ->
+    {Dir, Rest} = erl_data_shift_migrations:resolve_dir(["down", "path", "/tmp/y"]),
+    ?assertEqual("/tmp/y", Dir),
+    ?assertEqual(["down"], Rest).
