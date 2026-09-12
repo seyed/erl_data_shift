@@ -16,7 +16,7 @@
     {"migrate dry-run", "Lists pending migrations without applying them."},
     {"migrate dry-run json", "Same as migrate dry-run, output as JSON."},
     {"migrate down", "Rolls back the most recently applied migration."},
-    {"migrate -f <path>", "Same as migrate, but points to a custom migrations directory."},
+    {"migrate path <dir>", "Same as migrate, but points to a custom migrations directory. Also: -f <dir> / --path <dir>."},
     {"new <name>", "Scaffolds a new numbered up+down migration file pair."},
     {"validate", "Test-runs pending migrations in a rolled-back transaction to catch errors early."},
     {"validate json", "Same as validate, output as JSON."},
@@ -364,7 +364,7 @@ migrate_up(Dir, Force) ->
     case erl_data_shift_migrations:list_sql_files(Dir) of
         {error, {directory_not_found, Dir}} ->
             io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [Dir]),
-            io:format("Create it, or point to another one with: eds migrate -f <path>~n");
+            io:format("Create it, or point to another one with: eds migrate path <dir>~n");
         {error, Reason} ->
             io:format("\033[31m❌ Could not list migrations: ~p~n\033[0m", [Reason]);
         {ok, _Files} ->
