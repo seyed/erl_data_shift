@@ -69,8 +69,13 @@ compute_checksum(Sql) when is_binary(Sql) ->
 %% tokens instead of discarding them.
 take_flag(Args) -> take_flag(Args, []).
 
+%% "path" (dash-free) is preferred over "-f"/"--path" for packaged binary
+%% usage — relx's launcher has previously been observed silently swallowing
+%% dash-prefixed extra arguments (see the --version/--help fix), so a
+%% dash-free keyword is the more robust option here too.
 take_flag(["-f", Path | Rest], Acc) -> {ok, Path, lists:reverse(Acc) ++ Rest};
 take_flag(["--path", Path | Rest], Acc) -> {ok, Path, lists:reverse(Acc) ++ Rest};
+take_flag(["path", Path | Rest], Acc) -> {ok, Path, lists:reverse(Acc) ++ Rest};
 take_flag([H | Rest], Acc) -> take_flag(Rest, [H | Acc]);
 take_flag([], _Acc) -> none.
 
