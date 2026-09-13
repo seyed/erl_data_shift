@@ -1,5 +1,5 @@
 -module(erl_data_shift_migrator).
--export([run/3, run/4, rollback_last/2, dry_run/2, validate/2, verify_checksums/2]).
+-export([run/3, run/4, rollback_last/2, rollback_to/3, dry_run/2, validate/2, verify_checksums/2]).
 
 -define(NO_APPLIED_MIGRATIONS, no_applied_migrations).
 -define(DOWN_FILE_MISSING, down_file_missing).
@@ -161,23 +161,91 @@ rollback_with_conn(Conn, Dir, Files) ->
         {ok, none} ->
             {error, ?NO_APPLIED_MIGRATIONS};
         {ok, Version} ->
-            case find_up_file(Files, Version) of
-                not_found ->
-                    {error, {?UP_FILE_MISSING, Version}};
-                UpFile ->
-                    case erl_data_shift_migrations:has_down_file(Dir, UpFile) of
-                        false ->
-                            {error, {?DOWN_FILE_MISSING, erl_data_shift_migrations:down_file_for(UpFile)}};
-                        true ->
-                            DownFile = erl_data_shift_migrations:down_file_for(UpFile),
-                            case erl_data_shift_migrations:read_file(filename:join(Dir, DownFile)) of
-                                {error, Reason} ->
-                                    {error, {read_failed, DownFile, Reason}};
-                                {ok, Sql} ->
-                                    case erl_data_shift_db:revert_migration(Conn, Version, Sql) of
-                                        ok -> {ok, Version};
-                                        {error, Reason} -> {error, {rollback_failed, UpFile, Reason}}
-                                    end
+            case revert_one_version(Conn, Dir, Files, Version) of
+                {ok, Version} -> {ok, Version};
+                {error, Reason} -> {error, Reason}
+            end
+    end.
+
+%% Rolls back every applied migration newer than Target (exclusive), in
+%% reverse chronological order — or every applied migration at all if
+%% Target is the atom `all`. Reuses the same single-step revert logic as
+%% rollback_last/2 (revert_one_version/4), just looped. Stops at the first
+%% failure and reports which versions were successfully reverted before it,
+%% so a partial rollback is never silently lost from view.
+%% Returns {ok, [Version]} (reverted, most-recent-first) or
+%% {error, {Reason, [Version]}} (Reason plus what succeeded before it).
+-spec rollback_to(map(), file:filename(), all | string()) ->
+    {ok, [string()]} | {error, {term(), [string()]}} | {error, term()}.
+rollback_to(Env, Dir, Target) ->
+    case erl_data_shift_migrations:list_sql_files(Dir) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, Files} ->
+            erl_data_shift_db:with_connection(Env, fun(Conn) ->
+                with_lock(Conn, fun() -> rollback_to_with_conn(Conn, Dir, Files, Target) end)
+            end)
+    end.
+
+rollback_to_with_conn(Conn, Dir, Files, Target) ->
+    case validate_target(Target) of
+        {error, Reason} ->
+            {error, Reason};
+        ok ->
+            case erl_data_shift_db:get_applied_versions_desc(Conn) of
+                {error, Reason} ->
+                    {error, Reason};
+                {ok, AppliedDesc} ->
+                    ToRevert = versions_to_revert(AppliedDesc, Target),
+                    revert_many(Conn, Dir, Files, ToRevert, [])
+            end
+    end.
+
+%% Target must be `all` or a purely numeric version string (matching what
+%% extract_version/1 produces from filenames) — rejecting anything else
+%% outright rather than silently reverting nothing or everything.
+validate_target(all) -> ok;
+validate_target(Target) when is_list(Target) ->
+    case Target =/= [] andalso lists:all(fun(C) -> C >= $0 andalso C =< $9 end, Target) of
+        true -> ok;
+        false -> {error, {invalid_target_version, Target}}
+    end.
+
+versions_to_revert(AppliedDesc, all) ->
+    AppliedDesc;
+versions_to_revert(AppliedDesc, TargetVersion) ->
+    TargetNum = list_to_integer(TargetVersion),
+    [V || V <- AppliedDesc, list_to_integer(V) > TargetNum].
+
+revert_many(_Conn, _Dir, _Files, [], Acc) ->
+    {ok, lists:reverse(Acc)};
+revert_many(Conn, Dir, Files, [Version | Rest], Acc) ->
+    case revert_one_version(Conn, Dir, Files, Version) of
+        {ok, Version} -> revert_many(Conn, Dir, Files, Rest, [Version | Acc]);
+        {error, Reason} -> {error, {Reason, lists:reverse(Acc)}}
+    end.
+
+%% Shared single-migration revert: finds the up-file matching Version,
+%% derives and reads its *.down.sql, and reverts it transactionally via
+%% db:revert_migration/3. Used by both rollback_last/2 (single step) and
+%% rollback_to/3 (looped for multi-step rollback).
+revert_one_version(Conn, Dir, Files, Version) ->
+    case find_up_file(Files, Version) of
+        not_found ->
+            {error, {?UP_FILE_MISSING, Version}};
+        UpFile ->
+            case erl_data_shift_migrations:has_down_file(Dir, UpFile) of
+                false ->
+                    {error, {?DOWN_FILE_MISSING, erl_data_shift_migrations:down_file_for(UpFile)}};
+                true ->
+                    DownFile = erl_data_shift_migrations:down_file_for(UpFile),
+                    case erl_data_shift_migrations:read_file(filename:join(Dir, DownFile)) of
+                        {error, Reason} ->
+                            {error, {read_failed, DownFile, Reason}};
+                        {ok, Sql} ->
+                            case erl_data_shift_db:revert_migration(Conn, Version, Sql) of
+                                ok -> {ok, Version};
+                                {error, Reason} -> {error, {rollback_failed, UpFile, Reason}}
                             end
                     end
             end

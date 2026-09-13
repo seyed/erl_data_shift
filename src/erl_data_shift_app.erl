@@ -16,6 +16,8 @@
     {"migrate dry-run", "Lists pending migrations without applying them."},
     {"migrate dry-run json", "Same as migrate dry-run, output as JSON."},
     {"migrate down", "Rolls back the most recently applied migration."},
+    {"migrate down to <version>", "Rolls back every migration applied after <version> (exclusive), newest first."},
+    {"migrate down all", "Rolls back every applied migration."},
     {"migrate path <dir>", "Same as migrate, but points to a custom migrations directory. Also: -f <dir> / --path <dir>."},
     {"new <name>", "Scaffolds a new numbered up+down migration file pair."},
     {"validate", "Test-runs pending migrations in a rolled-back transaction to catch errors early."},
@@ -321,7 +323,7 @@ migrate(Args) ->
     {Dir, RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),
     Force = lists:member(?FORCE_ARG, RemainingArgs),
     case {lists:member(?DOWN_ARG, RemainingArgs), lists:member(?DRY_RUN_ARG, RemainingArgs)} of
-        {true, _} -> migrate_down(Dir);
+        {true, _} -> migrate_down(Dir, RemainingArgs);
         {false, true} -> migrate_dry_run(Dir, RemainingArgs);
         {false, false} -> migrate_up(Dir, Force)
     end.
@@ -371,7 +373,39 @@ migrate_up(Dir, Force) ->
             run_migrate(Dir, Force)
     end.
 
-migrate_down(Dir) ->
+migrate_down(Dir, RemainingArgs) ->
+    case parse_down_target(RemainingArgs) of
+        last_only -> migrate_down_last(Dir);
+        {ok, Target} -> migrate_down_to(Dir, Target);
+        {error, {invalid_target_version, Bad}} ->
+            io:format("\033[31m❌ Invalid target version: ~ts (expected a numeric version, e.g. eds migrate down to 0003)~n\033[0m", [Bad])
+    end.
+
+%% Parses "to <version>" or "all" out of the args following "down".
+%% "all" is checked first since "to all" would otherwise be ambiguous —
+%% "all" alone is the unambiguous, documented form.
+parse_down_target(Args) ->
+    case lists:member("all", Args) of
+        true -> {ok, all};
+        false ->
+            case find_to_version(Args) of
+                {ok, Version} ->
+                    case is_numeric_version(Version) of
+                        true -> {ok, Version};
+                        false -> {error, {invalid_target_version, Version}}
+                    end;
+                none -> last_only
+            end
+    end.
+
+find_to_version(["to", Version | _Rest]) -> {ok, Version};
+find_to_version([_ | Rest]) -> find_to_version(Rest);
+find_to_version([]) -> none.
+
+is_numeric_version(Str) ->
+    Str =/= [] andalso lists:all(fun(C) -> C >= $0 andalso C =< $9 end, Str).
+
+migrate_down_last(Dir) ->
     try
         case erl_data_shift_env:load() of
             {error, Reason} ->
@@ -398,6 +432,49 @@ migrate_down(Dir) ->
         Class:Err ->
             io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
     end.
+
+migrate_down_to(Dir, Target) ->
+    try
+        case erl_data_shift_env:load() of
+            {error, Reason} ->
+                io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason]);
+            {ok, Env} ->
+                case erl_data_shift_migrator:rollback_to(Env, Dir, Target) of
+                    {ok, []} ->
+                        io:format("\033[32m✅ Nothing to roll back — already at or below the target.~n\033[0m");
+                    {ok, Versions} ->
+                        io:format("\033[32m✅ Rolled back ~B migration(s):~n\033[0m", [length(Versions)]),
+                        lists:foreach(fun(V) -> io:format("  ~ts~n", [V]) end, Versions);
+                    {error, {directory_not_found, D}} ->
+                        io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [D]);
+                    {error, {{down_file_missing, DownFile}, Reverted}} ->
+                        report_partial_rollback(Reverted),
+                        io:format("\033[31m❌ Stopped: ~ts not found.~n\033[0m", [DownFile]);
+                    {error, {{up_file_missing, Version}, Reverted}} ->
+                        report_partial_rollback(Reverted),
+                        io:format("\033[31m❌ Stopped: no local migration file found for version ~ts.~n\033[0m", [Version]);
+                    {error, {{rollback_failed, File, Reason}, Reverted}} ->
+                        report_partial_rollback(Reverted),
+                        io:format("\033[31m❌ Stopped: rollback failed for ~ts: ~p~n\033[0m", [File, Reason]);
+                    {error, {Reason, Reverted}} ->
+                        report_partial_rollback(Reverted),
+                        io:format("\033[31m❌ Stopped: ~p~n\033[0m", [Reason]);
+                    {error, Reason} ->
+                        io:format("\033[31m❌ Rollback failed: ~p~n\033[0m", [Reason])
+                end
+        end
+    catch
+        Class:Err ->
+            io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err])
+    end.
+
+%% On a mid-sequence failure, always show what DID succeed before the error —
+%% a multi-step rollback stopping partway is a state the user needs to see
+%% clearly, not have buried inside an error tuple.
+report_partial_rollback([]) -> ok;
+report_partial_rollback(Reverted) ->
+    io:format("\033[33mSuccessfully rolled back before stopping:~n\033[0m"),
+    lists:foreach(fun(V) -> io:format("  ~ts~n", [V]) end, Reverted).
 
 run_migrate(Dir, Force) ->
     try

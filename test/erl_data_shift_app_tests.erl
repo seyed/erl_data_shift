@@ -1253,3 +1253,87 @@ migrate_dry_run_with_dash_free_path_keyword_test() ->
     meck:unload(erl_data_shift_migrator),
     meck:unload(erl_data_shift_env),
     file:del_dir_r(Dir).
+
+%% -- migrate down to/all, via mocked migrator --
+
+migrate_down_to_version_test() ->
+    Dir = "/tmp/eds_app_migrate_down_to_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, rollback_to, fun(_Env, _Dir, Target) ->
+        ?assertEqual("0001", Target),
+        {ok, ["0003", "0002"]}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "down", "to", "0001", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+migrate_down_all_test() ->
+    Dir = "/tmp/eds_app_migrate_down_all_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, rollback_to, fun(_Env, _Dir, Target) ->
+        ?assertEqual(all, Target),
+        {ok, ["0003", "0002", "0001"]}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "down", "all", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+migrate_down_to_nothing_to_do_test() ->
+    Dir = "/tmp/eds_app_migrate_down_to_empty_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, rollback_to, fun(_Env, _Dir, _Target) -> {ok, []} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "down", "to", "0005", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+migrate_down_to_invalid_target_test() ->
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "down", "to", "not_numeric"])).
+
+migrate_down_to_partial_failure_test() ->
+    Dir = "/tmp/eds_app_migrate_down_to_partial_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, rollback_to, fun(_Env, _Dir, _Target) ->
+        {error, {{rollback_failed, "0002_x.sql", fk_violation}, ["0003"]}}
+    end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "down", "all", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+%% Plain "migrate down" (no target) still routes to the single-step path.
+migrate_down_last_still_works_test() ->
+    Dir = "/tmp/eds_app_migrate_down_last_regression_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, rollback_last, fun(_Env, _Dir) -> {ok, "0003"} end),
+
+    ?assertEqual(ok, erl_data_shift_app:dispatch(["migrate", "down", "-f", Dir])),
+
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
