@@ -507,3 +507,27 @@ apply_migration_stores_checksum_test() ->
 
     ?assertEqual(ok, Result),
     meck:unload(epgsql).
+
+%% -- get_applied_versions_desc/1 --
+
+get_applied_versions_desc_success_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, Sql, []) ->
+        ?assert(string:find(Sql, "ORDER BY id DESC") =/= nomatch),
+        {ok, [col], [{<<"0003">>}, {<<"0002">>}, {<<"0001">>}]}
+    end),
+    Result = erl_data_shift_db:get_applied_versions_desc(fake_conn),
+    ?assertEqual({ok, ["0003", "0002", "0001"]}, Result),
+    meck:unload(epgsql).
+
+get_applied_versions_desc_empty_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, []) -> {ok, [col], []} end),
+    ?assertEqual({ok, []}, erl_data_shift_db:get_applied_versions_desc(fake_conn)),
+    meck:unload(epgsql).
+
+get_applied_versions_desc_query_error_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, []) -> {error, table_missing} end),
+    ?assertEqual({error, table_missing}, erl_data_shift_db:get_applied_versions_desc(fake_conn)),
+    meck:unload(epgsql).

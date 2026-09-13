@@ -561,3 +561,127 @@ run_force_false_still_enforces_drift_test() ->
     ?assertMatch({error, {checksum_drift, _}}, Result),
     meck:unload(erl_data_shift_db),
     teardown(Dir).
+
+%% -- rollback_to/3 --
+
+rollback_to_setup() ->
+    Dir = "/tmp/eds_migrator_rollback_to_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    lists:foreach(fun(V) ->
+        file:write_file(filename:join(Dir, V ++ "_x.sql"), <<"CREATE TABLE x(id int);">>),
+        file:write_file(filename:join(Dir, V ++ "_x.down.sql"), <<"DROP TABLE x;">>)
+    end, ["0001", "0002", "0003"]),
+    Dir.
+
+rollback_to_teardown(Dir) -> file:del_dir_r(Dir).
+
+%% Rolling back "to 0001" reverts 0003 and 0002 (newest first), leaves 0001 applied.
+rollback_to_target_version_test() ->
+    Dir = rollback_to_setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, get_applied_versions_desc, fun(_Conn) -> {ok, ["0003", "0002", "0001"]} end),
+    meck:expect(erl_data_shift_db, revert_migration, fun(_Conn, _Version, _Sql) -> ok end),
+
+    Result = erl_data_shift_migrator:rollback_to(#{}, Dir, "0001"),
+
+    ?assertEqual({ok, ["0003", "0002"]}, Result),
+    ?assertEqual(2, meck:num_calls(erl_data_shift_db, revert_migration, '_')),
+    meck:unload(erl_data_shift_db),
+    rollback_to_teardown(Dir).
+
+%% "all" reverts every applied version.
+rollback_to_all_test() ->
+    Dir = rollback_to_setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, get_applied_versions_desc, fun(_Conn) -> {ok, ["0003", "0002", "0001"]} end),
+    meck:expect(erl_data_shift_db, revert_migration, fun(_Conn, _Version, _Sql) -> ok end),
+
+    Result = erl_data_shift_migrator:rollback_to(#{}, Dir, all),
+
+    ?assertEqual({ok, ["0003", "0002", "0001"]}, Result),
+    meck:unload(erl_data_shift_db),
+    rollback_to_teardown(Dir).
+
+%% Target already at/above the highest applied version -> nothing to do.
+rollback_to_already_at_target_test() ->
+    Dir = rollback_to_setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, get_applied_versions_desc, fun(_Conn) -> {ok, ["0003", "0002", "0001"]} end),
+
+    Result = erl_data_shift_migrator:rollback_to(#{}, Dir, "0003"),
+
+    ?assertEqual({ok, []}, Result),
+    ?assertEqual(0, meck:num_calls(erl_data_shift_db, revert_migration, '_')),
+    meck:unload(erl_data_shift_db),
+    rollback_to_teardown(Dir).
+
+%% A failure partway through reports what succeeded before it, in order.
+rollback_to_partial_failure_reports_progress_test() ->
+    Dir = rollback_to_setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, get_applied_versions_desc, fun(_Conn) -> {ok, ["0003", "0002", "0001"]} end),
+    meck:expect(erl_data_shift_db, revert_migration, fun
+        (_Conn, "0003", _Sql) -> ok;
+        (_Conn, "0002", _Sql) -> {error, fk_violation}
+    end),
+
+    Result = erl_data_shift_migrator:rollback_to(#{}, Dir, all),
+
+    ?assertMatch({error, {{rollback_failed, "0002_x.sql", fk_violation}, ["0003"]}}, Result),
+    meck:unload(erl_data_shift_db),
+    rollback_to_teardown(Dir).
+
+%% Invalid (non-numeric) target is rejected before touching the DB.
+rollback_to_invalid_target_test() ->
+    Dir = rollback_to_setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+
+    Result = erl_data_shift_migrator:rollback_to(#{}, Dir, "not_a_version"),
+
+    ?assertMatch({error, {invalid_target_version, "not_a_version"}}, Result),
+    ?assertEqual(0, meck:num_calls(erl_data_shift_db, get_applied_versions_desc, '_')),
+    meck:unload(erl_data_shift_db),
+    rollback_to_teardown(Dir).
+
+%% Missing up file for a version the DB claims is applied.
+rollback_to_up_file_missing_test() ->
+    Dir = rollback_to_setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, get_applied_versions_desc, fun(_Conn) -> {ok, ["0099"]} end),
+
+    Result = erl_data_shift_migrator:rollback_to(#{}, Dir, all),
+
+    ?assertMatch({error, {{up_file_missing, "0099"}, []}}, Result),
+    meck:unload(erl_data_shift_db),
+    rollback_to_teardown(Dir).
+
+rollback_to_missing_directory_test() ->
+    Result = erl_data_shift_migrator:rollback_to(#{}, "/tmp/eds_no_such_rollback_to_dir", all),
+    ?assertMatch({error, {directory_not_found, _}}, Result).
+
+%% rollback_last/2 still behaves identically after the shared-helper refactor.
+rollback_last_still_works_after_refactor_test() ->
+    Dir = rollback_setup(),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, get_last_applied_version, fun(_Conn) -> {ok, "0001"} end),
+    meck:expect(erl_data_shift_db, revert_migration, fun(_Conn, "0001", _Sql) -> ok end),
+
+    Result = erl_data_shift_migrator:rollback_last(#{}, Dir),
+
+    ?assertEqual({ok, "0001"}, Result),
+    meck:unload(erl_data_shift_db),
+    rollback_teardown(Dir).
