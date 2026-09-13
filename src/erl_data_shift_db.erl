@@ -1,6 +1,7 @@
 -module(erl_data_shift_db).
 -export([check_connection/1, get_table_stats/1, get_migration_history/1,
          with_connection/2, ensure_migrations_table/1, get_applied_versions/1,
+         get_applied_versions_desc/1,
          apply_migration/3, get_last_applied_version/1, revert_migration/3,
          acquire_migration_lock/1, release_migration_lock/1, validate_migration/2,
          get_applied_checksums/1]).
@@ -71,6 +72,18 @@ run_statements(Conn, [Sql | Rest]) ->
 -spec get_applied_versions(epgsql:connection()) -> {ok, [string()]} | {error, term()}.
 get_applied_versions(Conn) ->
     Sql = "SELECT version FROM schema_migrations WHERE reverted_at IS NULL",
+    case epgsql:equery(Conn, Sql, []) of
+        {ok, _Cols, Rows} -> {ok, [binary_to_list(V) || {V} <- Rows]};
+        {error, Reason} -> {error, Reason}
+    end.
+
+%% Same as get_applied_versions/1, but ordered most-recently-applied first
+%% (by insertion order, not lexical/numeric version sort) — needed for
+%% target-version rollback, which must undo migrations in the exact reverse
+%% order they were applied.
+-spec get_applied_versions_desc(epgsql:connection()) -> {ok, [string()]} | {error, term()}.
+get_applied_versions_desc(Conn) ->
+    Sql = "SELECT version FROM schema_migrations WHERE reverted_at IS NULL ORDER BY id DESC",
     case epgsql:equery(Conn, Sql, []) of
         {ok, _Cols, Rows} -> {ok, [binary_to_list(V) || {V} <- Rows]};
         {error, Reason} -> {error, Reason}
