@@ -135,7 +135,7 @@ eds init          # membuat kerangka migrations/ dan .env.example di direktori s
 
 
 <!-- COVERAGE-START -->
-### 🧪 Cakupan Pengujian — Total: 92%
+### 🧪 Cakupan Pengujian — Total: 91%
 
 [📊 Lihat laporan cakupan interaktif baris demi baris](https://seyed.github.io/erl_data_shift/)
 
@@ -145,9 +145,9 @@ eds init          # membuat kerangka migrations/ dan .env.example di direktori s
 | ✅ erl_data_shift_json | 100% |
 | ✅ erl_data_shift_migrations | 96% |
 | ✅ erl_data_shift_env | 94% |
-| ✅ erl_data_shift_app | 93% |
 | ✅ erl_data_shift_db | 93% |
-| ✅ erl_data_shift_migrator | 92% |
+| ✅ erl_data_shift_migrator | 93% |
+| ✅ erl_data_shift_app | 90% |
 | ✅ erl_data_shift_scaffold | 82% |
 | ✅ erl_data_shift_init | 80% |
 <!-- COVERAGE-END -->

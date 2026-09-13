@@ -132,7 +132,7 @@ eds init          # 在当前目录生成 migrations/ 和 .env.example
 ## 🔬 测试   
 
 <!-- COVERAGE-START -->
-### 🧪 测试覆盖率 — 总计: 92%
+### 🧪 测试覆盖率 — 总计: 91%
 
 [📊 查看交互式逐行覆盖率报告](https://seyed.github.io/erl_data_shift/)
 
@@ -142,9 +142,9 @@ eds init          # 在当前目录生成 migrations/ 和 .env.example
 | ✅ erl_data_shift_json | 100% |
 | ✅ erl_data_shift_migrations | 96% |
 | ✅ erl_data_shift_env | 94% |
-| ✅ erl_data_shift_app | 93% |
 | ✅ erl_data_shift_db | 93% |
-| ✅ erl_data_shift_migrator | 92% |
+| ✅ erl_data_shift_migrator | 93% |
+| ✅ erl_data_shift_app | 90% |
 | ✅ erl_data_shift_scaffold | 82% |
 | ✅ erl_data_shift_init | 80% |
 <!-- COVERAGE-END -->
