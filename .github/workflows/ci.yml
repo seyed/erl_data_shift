@@ -220,6 +220,42 @@ jobs:
           fi
           git push
 
+
+  # Runs the full eds workflow (init/migrate/verify/rollback/locking)
+  # against a REAL Postgres instance — no mocks. See
+  # test/erl_data_shift_integration_SUITE.erl. Uses Common Test
+  # specifically so this never runs as part of `rebar3 eunit`.
+  integration-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27.1.2"
+          rebar3-version: "3.27.0"
+
+      - name: Run integration tests
+        run: rebar3 ct
+
   # Deploys the coverage HTML report uploaded above to GitHub Pages.
   deploy-pages:
     needs: test
@@ -427,3 +463,57 @@ jobs:
             git commit -m "docs: update checksums for ${TAG} [skip ci]" -m "$(printf '%b' "Updated:\n${CHANGED_FILES}")"
           fi
           git push origin HEAD:main
+
+  # Updates the Homebrew tap (a separate repo: OWNER/homebrew-eds) with the
+  # new version, download URLs, and checksums for this release. Requires a
+  # HOMEBREW_TAP_TOKEN secret: a Personal Access Token with write access to
+  # that repo (GITHUB_TOKEN only has access to *this* repo, not others).
+  update-homebrew-tap:
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: johnsmith/homebrew-eds
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: checksum-*
+          path: checksums
+          merge-multiple: true
+
+      - name: Update formula
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          MACOS_SHA=$(cat checksums/eds-macos-arm64.sha256)
+          LINUX_SHA=$(cat checksums/eds-linux-x86_64.sha256)
+
+          sed -i \
+            -e "s/version \".*\"/version \"${VERSION}\"/" \
+            -e "s|releases/download/v[^/]*/eds-macos-arm64|releases/download/${TAG}/eds-macos-arm64|" \
+            -e "s|releases/download/v[^/]*/eds-linux-x86_64|releases/download/${TAG}/eds-linux-x86_64|" \
+            -e "0,/sha256 \".*\"/s//sha256 \"${MACOS_SHA}\"/" \
+            Formula/eds.rb
+
+          # Second sha256 occurrence (Linux) — the first sed only touches the first match.
+          python3 - "$LINUX_SHA" <<'PYEOF'
+          import re, sys
+          linux_sha = sys.argv[1]
+          with open("Formula/eds.rb") as f:
+              content = f.read()
+          matches = list(re.finditer(r'sha256 "[^"]*"', content))
+          if len(matches) >= 2:
+              start, end = matches[1].span()
+              content = content[:start] + f'sha256 "{linux_sha}"' + content[end:]
+          with open("Formula/eds.rb", "w") as f:
+              f.write(content)
+          PYEOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/eds.rb
+          git diff --cached --quiet || git commit -m "eds ${VERSION}"
+          git push
