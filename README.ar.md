@@ -148,7 +148,7 @@ eds init          # ينشئ هيكل migrations/ و .env.example في المج�
 <tr><th>التغطية</th><th>الوحدة</th></tr>
 <tr><td>✅ ١٠٠%</td><td>erl_data_shift_bench</td></tr>
 <tr><td>✅ ١٠٠%</td><td>erl_data_shift_json</td></tr>
-<tr><td>✅ ٩٦%</td><td>erl_data_shift_migrations</td></tr>
+<tr><td>✅ ٩٧%</td><td>erl_data_shift_migrations</td></tr>
 <tr><td>✅ ٩٤%</td><td>erl_data_shift_env</td></tr>
 <tr><td>✅ ٩٣%</td><td>erl_data_shift_db</td></tr>
 <tr><td>✅ ٩٣%</td><td>erl_data_shift_migrator</td></tr>

@@ -143,7 +143,7 @@ eds init          # 現在のディレクトリに migrations/ と .env.example 
 |---|---|
 | ✅ erl_data_shift_bench | 100% |
 | ✅ erl_data_shift_json | 100% |
-| ✅ erl_data_shift_migrations | 96% |
+| ✅ erl_data_shift_migrations | 97% |
 | ✅ erl_data_shift_env | 94% |
 | ✅ erl_data_shift_db | 93% |
 | ✅ erl_data_shift_migrator | 93% |
