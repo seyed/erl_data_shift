@@ -685,3 +685,40 @@ rollback_last_still_works_after_refactor_test() ->
     ?assertEqual({ok, "0001"}, Result),
     meck:unload(erl_data_shift_db),
     rollback_teardown(Dir).
+
+%% -- non-transactional statement detection wired into run/3 and validate/2 --
+
+run_blocks_non_transactional_statement_test() ->
+    Dir = "/tmp/eds_migrator_nontx_run_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    file:write_file(filename:join(Dir, "0001_idx.sql"), <<"CREATE INDEX CONCURRENTLY idx_x ON t(x);">>),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_checksums, fun(_Conn) -> {ok, []} end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
+
+    Result = erl_data_shift_migrator:run(#{}, Dir, fun(_, _, _) -> ok end),
+
+    ?assertMatch({error, {non_transactional_statement, "0001_idx.sql", ["CREATE INDEX CONCURRENTLY"]}}, Result),
+    ?assertEqual(0, meck:num_calls(erl_data_shift_db, apply_migration, '_')),
+    meck:unload(erl_data_shift_db),
+    file:del_dir_r(Dir).
+
+validate_blocks_non_transactional_statement_test() ->
+    Dir = "/tmp/eds_migrator_nontx_validate_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    file:write_file(filename:join(Dir, "0001_idx.sql"), <<"CREATE INDEX CONCURRENTLY idx_x ON t(x);">>),
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, []} end),
+
+    Result = erl_data_shift_migrator:validate(#{}, Dir),
+
+    ?assertMatch({ok, [{"0001_idx.sql", {error, {non_transactional_statement, ["CREATE INDEX CONCURRENTLY"]}}}]}, Result),
+    ?assertEqual(0, meck:num_calls(erl_data_shift_db, validate_migration, '_')),
+    meck:unload(erl_data_shift_db),
+    file:del_dir_r(Dir).
+

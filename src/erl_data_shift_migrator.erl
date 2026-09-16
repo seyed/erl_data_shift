@@ -81,7 +81,11 @@ validate_each(Conn, Dir, Files) ->
 validate_one(Conn, Dir, File) ->
     case erl_data_shift_migrations:read_file(filename:join(Dir, File)) of
         {error, Reason} -> {error, {read_failed, Reason}};
-        {ok, Sql} -> erl_data_shift_db:validate_migration(Conn, Sql)
+        {ok, Sql} ->
+            case erl_data_shift_migrations:detect_non_transactional_statements(Sql) of
+                [] -> erl_data_shift_db:validate_migration(Conn, Sql);
+                Matches -> {error, {non_transactional_statement, Matches}}
+            end
     end.
 
 %% Detects drift: for every applied (not reverted) migration with a stored
@@ -307,8 +311,14 @@ apply_pending(Conn, Dir, [File | Rest], Total, Idx, ProgressFun, AppliedCount) -
         {error, Reason} ->
             {error, {read_failed, File, Reason}};
         {ok, Sql} ->
-            case erl_data_shift_db:apply_migration(Conn, Version, Sql) of
-                ok -> apply_pending(Conn, Dir, Rest, Total, Idx + 1, ProgressFun, AppliedCount + 1);
-                {error, Reason} -> {error, {migration_failed, File, Reason}}
+            case erl_data_shift_migrations:detect_non_transactional_statements(Sql) of
+                [] ->
+                    case erl_data_shift_db:apply_migration(Conn, Version, Sql) of
+                        ok -> apply_pending(Conn, Dir, Rest, Total, Idx + 1, ProgressFun, AppliedCount + 1);
+                        {error, Reason} -> {error, {migration_failed, File, Reason}}
+                    end;
+                Matches ->
+                    {error, {non_transactional_statement, File, Matches}}
             end
     end.
+

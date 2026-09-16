@@ -159,3 +159,24 @@ resolve_dir_dash_free_path_works_with_down_test() ->
     {Dir, Rest} = erl_data_shift_migrations:resolve_dir(["down", "path", "/tmp/y"]),
     ?assertEqual("/tmp/y", Dir),
     ?assertEqual(["down"], Rest).
+
+%% -- detect_non_transactional_statements/1 --
+
+detect_non_transactional_finds_create_index_concurrently_test() ->
+    Sql = "CREATE INDEX CONCURRENTLY idx_users_email ON users(email);",
+    ?assertEqual(["CREATE INDEX CONCURRENTLY"], erl_data_shift_migrations:detect_non_transactional_statements(Sql)).
+
+detect_non_transactional_is_case_insensitive_test() ->
+    Sql = "create index concurrently idx_x on t(x);",
+    ?assertEqual(["CREATE INDEX CONCURRENTLY"], erl_data_shift_migrations:detect_non_transactional_statements(Sql)).
+
+detect_non_transactional_finds_multiple_test() ->
+    Sql = "VACUUM; ALTER SYSTEM SET foo = 'bar';",
+    Result = erl_data_shift_migrations:detect_non_transactional_statements(Sql),
+    ?assert(lists:member("VACUUM", Result)),
+    ?assert(lists:member("ALTER SYSTEM", Result)).
+
+detect_non_transactional_returns_empty_for_normal_sql_test() ->
+    Sql = "CREATE TABLE users(id serial primary key, email text);",
+    ?assertEqual([], erl_data_shift_migrations:detect_non_transactional_statements(Sql)).
+
