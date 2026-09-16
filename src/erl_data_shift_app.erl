@@ -165,6 +165,9 @@ print_validate_results(Results) ->
     lists:foreach(fun({File, Result}) ->
         case Result of
             ok -> io:format("\033[32m✅ ~ts~n\033[0m", [File]);
+            {error, {non_transactional_statement, Matches}} ->
+                io:format("\033[31m❌ ~ts — contains statement(s) that cannot run inside a transaction: ~ts~n\033[0m",
+                          [File, string:join(Matches, ", ")]);
             {error, Reason} -> io:format("\033[31m❌ ~ts — ~p~n\033[0m", [File, Reason])
         end
     end, Results),
@@ -516,6 +519,10 @@ run_migrate(Dir, Force) ->
                     {error, {migration_failed, File, Reason}} ->
                         io:format("\033[31m❌ Migration failed: ~ts~nReason: ~p~n\033[0m", [File, Reason]),
                         io:format("\033[33mStopped — earlier migrations in this run were committed, this one was rolled back.~n\033[0m");
+                    {error, {non_transactional_statement, File, Matches}} ->
+                        io:format("\033[31m❌ ~ts contains statement(s) that cannot run inside a transaction:~n\033[0m", [File]),
+                        lists:foreach(fun(M) -> io:format("  ~ts~n", [M]) end, Matches),
+                        io:format("Split this into its own migration file, or run it manually outside eds.~n");
                     {error, {checksum_drift, Mismatches}} ->
                         io:format("\033[31m❌ Refusing to migrate: the following already-applied migration(s) "
                                   "have been edited since they ran:~n\033[0m"),
@@ -710,3 +717,4 @@ print_env_summary(Env) ->
     io:format("  PG_USER=~ts~n", [maps:get(<<"PG_USER">>, Env, <<>>)]),
     io:format("  PG_PASSWORD=****~n"),
     io:format("  PG_DATABASE=~ts~n", [maps:get(<<"PG_DATABASE">>, Env, <<>>)]).
+

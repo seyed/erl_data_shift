@@ -1,6 +1,7 @@
 -module(erl_data_shift_migrations).
 -export([resolve_dir/1, list_sql_files/1, extract_version/1, read_file/1,
-         down_file_for/1, has_down_file/2, compute_checksum/1]).
+         down_file_for/1, has_down_file/2, compute_checksum/1,
+         detect_non_transactional_statements/1]).
 
 %% Suffix convention for rollback scripts: "0001_init.sql" pairs with
 %% "0001_init.down.sql" in the same directory.
@@ -104,3 +105,29 @@ read_file(Path) ->
         {ok, Bin} -> {ok, binary_to_list(Bin)};
         {error, Reason} -> {error, Reason}
     end.
+
+%% Heuristically flags SQL statements that Postgres refuses to run inside a
+%% transaction block — CREATE INDEX CONCURRENTLY being the classic one.
+%% apply_migration/validate_migration always wrap SQL in BEGIN...COMMIT, so
+%% without this check a migration using one of these would fail with a
+%% confusing Postgres error instead of a clear one. This is a substring
+%% scan, not a real SQL parser — it can false-positive on these phrases
+%% appearing in a string literal or comment, which is an accepted tradeoff
+%% given no SQL parser dependency exists in this project.
+-spec detect_non_transactional_statements(string()) -> [string()].
+detect_non_transactional_statements(Sql) ->
+    Upper = string:uppercase(Sql),
+    Patterns = [
+        "CREATE INDEX CONCURRENTLY",
+        "DROP INDEX CONCURRENTLY",
+        "REINDEX CONCURRENTLY",
+        "ALTER SYSTEM",
+        "CREATE DATABASE",
+        "DROP DATABASE",
+        "CREATE TABLESPACE",
+        "DROP TABLESPACE",
+        "DISCARD ALL",
+        "VACUUM"
+    ],
+    [P || P <- Patterns, string:find(Upper, P) =/= nomatch].
+
