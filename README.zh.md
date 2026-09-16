@@ -84,12 +84,12 @@ _eds 是一个新工具 — 以下这些是已经成熟且被广泛采用的工�
 \* 大小数字为近似值，各版本之间会变化 — 请用 `ls -lh` 检查你下载的 `eds` 二进制文件，并查看各工具最新 release 页面获取当前精确数字。   
 -- 
 <!-- CHECKSUMS-START -->
-### 🔒 发布 v0.9.0 的 SHA256 校验和
+### 🔒 发布 v0.9.1 的 SHA256 校验和
 
 ```
-be6b4fb705849ea6a39eefb7cb2588ea53ac85fd36e69a7cabe9ca2e82f5d4f6  eds-linux-x86_64
-a883258573b3b1c389f90209497861d6eeefcbaef2624bbd50cb2b08a7717923  eds-macos-arm64
-c286b463b130481c243dcc9341aa32a1709c0097fd45cdd8dcd6299abff645d9  eds-windows-x86_64
+701f6cc72d8875d92347fed3655c1f07589ac9583a3d675de956a011c4ebd65d  eds-linux-x86_64
+f42f6666ccad20bf75bfdfa32fc1f4a75227a31e13156202b11a9379ada3268b  eds-macos-arm64
+21821a2e9a0eb41481aa6274df84ecc3d4d6fe04cfa1841f720733a91c33d0f1  eds-windows-x86_64
 ```
 <!-- CHECKSUMS-END -->
 如有安全问题，请联系：seyed@swiftter.com 
