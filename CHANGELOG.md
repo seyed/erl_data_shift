@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Nothing yet.
 
+
+[0.9.2]
+Fixed
+Every command now returns a real exit code (0 for success, 1 for failure) — previously the VM always exited 0 regardless of the actual outcome, silently undermining CI/scripting use of this tool.
+
 ---
 
 ## Pre-0.9.1 releases
