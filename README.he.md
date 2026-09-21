@@ -122,7 +122,7 @@ eds init          # יוצר את migrations/ ו-.env.example בתיקייה ה�
 
  
 <!-- COVERAGE-START -->
-### 🧪 כיסוי בדיקות — סה"כ: 91%
+### 🧪 כיסוי בדיקות — סה"כ: 89%
 
 [📊 צפה בדוח כיסוי אינטראקטיבי](https://seyed.github.io/erl_data_shift/)
 
@@ -134,7 +134,7 @@ eds init          # יוצר את migrations/ ו-.env.example בתיקייה ה�
 <tr><td>✅ 94%</td><td>erl_data_shift_env</td></tr>
 <tr><td>✅ 93%</td><td>erl_data_shift_db</td></tr>
 <tr><td>✅ 93%</td><td>erl_data_shift_migrator</td></tr>
-<tr><td>✅ 90%</td><td>erl_data_shift_app</td></tr>
+<tr><td>✅ 86%</td><td>erl_data_shift_app</td></tr>
 <tr><td>✅ 82%</td><td>erl_data_shift_scaffold</td></tr>
 <tr><td>✅ 80%</td><td>erl_data_shift_init</td></tr>
 </table>

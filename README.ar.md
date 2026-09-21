@@ -140,7 +140,7 @@ eds init          # ينشئ هيكل migrations/ و .env.example في المج�
 
 
 <!-- COVERAGE-START -->
-### 🧪 تغطية الاختبار — الإجمالي: ٩١%
+### 🧪 تغطية الاختبار — الإجمالي: ٨٩%
 
 [📊 عرض تقرير التغطية التفاعلي](https://seyed.github.io/erl_data_shift/)
 
@@ -152,7 +152,7 @@ eds init          # ينشئ هيكل migrations/ و .env.example في المج�
 <tr><td>✅ ٩٤%</td><td>erl_data_shift_env</td></tr>
 <tr><td>✅ ٩٣%</td><td>erl_data_shift_db</td></tr>
 <tr><td>✅ ٩٣%</td><td>erl_data_shift_migrator</td></tr>
-<tr><td>✅ ٩٠%</td><td>erl_data_shift_app</td></tr>
+<tr><td>✅ ٨٦%</td><td>erl_data_shift_app</td></tr>
 <tr><td>✅ ٨٢%</td><td>erl_data_shift_scaffold</td></tr>
 <tr><td>✅ ٨٠%</td><td>erl_data_shift_init</td></tr>
 </table>

@@ -133,7 +133,7 @@ eds init          # crea el esqueleto de migrations/ y .env.example en el direct
 
 
 <!-- COVERAGE-START -->
-### 🧪 Cobertura de Pruebas — Total: 91%
+### 🧪 Cobertura de Pruebas — Total: 89%
 
 [📊 Ver informe de cobertura interactivo línea por línea](https://seyed.github.io/erl_data_shift/)
 
@@ -145,7 +145,7 @@ eds init          # crea el esqueleto de migrations/ y .env.example en el direct
 | ✅ erl_data_shift_env | 94% |
 | ✅ erl_data_shift_db | 93% |
 | ✅ erl_data_shift_migrator | 93% |
-| ✅ erl_data_shift_app | 90% |
+| ✅ erl_data_shift_app | 86% |
 | ✅ erl_data_shift_scaffold | 82% |
 | ✅ erl_data_shift_init | 80% |
 <!-- COVERAGE-END -->

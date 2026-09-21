@@ -139,7 +139,7 @@ eds init          # skapar migrations/ och .env.example i aktuell katalog
 
 
 <!-- COVERAGE-START -->
-### 🧪 Testtäckning — Totalt: 91%
+### 🧪 Testtäckning — Totalt: 89%
 
 [📊 Visa interaktiv rad-för-rad-täckningsrapport](https://seyed.github.io/erl_data_shift/)
 
@@ -151,7 +151,7 @@ eds init          # skapar migrations/ och .env.example i aktuell katalog
 | ✅ erl_data_shift_env | 94% |
 | ✅ erl_data_shift_db | 93% |
 | ✅ erl_data_shift_migrator | 93% |
-| ✅ erl_data_shift_app | 90% |
+| ✅ erl_data_shift_app | 86% |
 | ✅ erl_data_shift_scaffold | 82% |
 | ✅ erl_data_shift_init | 80% |
 <!-- COVERAGE-END -->

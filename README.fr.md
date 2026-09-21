@@ -137,7 +137,7 @@ eds init          # échafaude le dossier migrations/ et .env.example dans le r�
 ## 🔬 Tests
 
 <!-- COVERAGE-START -->
-### 🧪 Couverture des tests — Total: 91%
+### 🧪 Couverture des tests — Total: 89%
 
 [📊 Voir le rapport de couverture interactif ligne par ligne](https://seyed.github.io/erl_data_shift/)
 
@@ -149,7 +149,7 @@ eds init          # échafaude le dossier migrations/ et .env.example dans le r�
 | ✅ erl_data_shift_env | 94% |
 | ✅ erl_data_shift_db | 93% |
 | ✅ erl_data_shift_migrator | 93% |
-| ✅ erl_data_shift_app | 90% |
+| ✅ erl_data_shift_app | 86% |
 | ✅ erl_data_shift_scaffold | 82% |
 | ✅ erl_data_shift_init | 80% |
 <!-- COVERAGE-END -->

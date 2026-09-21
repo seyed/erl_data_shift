@@ -134,7 +134,7 @@ eds init          # skaper migrations/ og .env.example i gjeldende mappe
 
 
 <!-- COVERAGE-START -->
-### 🧪 Testdekning — Totalt: 91%
+### 🧪 Testdekning — Totalt: 89%
 
 [📊 Vis interaktiv linje-for-linje dekningsrapport](https://seyed.github.io/erl_data_shift/)
 
@@ -146,7 +146,7 @@ eds init          # skaper migrations/ og .env.example i gjeldende mappe
 | ✅ erl_data_shift_env | 94% |
 | ✅ erl_data_shift_db | 93% |
 | ✅ erl_data_shift_migrator | 93% |
-| ✅ erl_data_shift_app | 90% |
+| ✅ erl_data_shift_app | 86% |
 | ✅ erl_data_shift_scaffold | 82% |
 | ✅ erl_data_shift_init | 80% |
 <!-- COVERAGE-END -->

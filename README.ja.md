@@ -135,7 +135,7 @@ eds init          # 現在のディレクトリに migrations/ と .env.example 
 ## 🔬 テスト 
 
 <!-- COVERAGE-START -->
-### 🧪 テストカバレッジ — 合計: 91%
+### 🧪 テストカバレッジ — 合計: 89%
 
 [📊 インタラクティブなカバレッジレポートを見る](https://seyed.github.io/erl_data_shift/)
 
@@ -147,7 +147,7 @@ eds init          # 現在のディレクトリに migrations/ と .env.example 
 | ✅ erl_data_shift_env | 94% |
 | ✅ erl_data_shift_db | 93% |
 | ✅ erl_data_shift_migrator | 93% |
-| ✅ erl_data_shift_app | 90% |
+| ✅ erl_data_shift_app | 86% |
 | ✅ erl_data_shift_scaffold | 82% |
 | ✅ erl_data_shift_init | 80% |
 <!-- COVERAGE-END -->
