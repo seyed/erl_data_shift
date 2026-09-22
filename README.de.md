@@ -92,9 +92,9 @@ _eds ist ein neues Tool — die folgenden sind etablierte, weit verbreitete Tool
 ### 🔒 SHA256-Prüfsummen für Release v0.9.2
 
 ```
-137375221c5561dcefc23f13f435bff5238206353f928aa7617c26e9e96afb49  eds-linux-x86_64
-7ae4aed653b6699458e5e2b5e94f7e8dbd72199eb41896c437576a9b00570722  eds-macos-arm64
-f9efc72abc2a8f75bdbe52d3e9972de9115239ecef3a9255e58bb7d2dd3da151  eds-windows-x86_64
+c952f58c007f3503e567199087cb24da3b46b75af046e98411a59e234eb76ca1  eds-linux-x86_64
+790133e24a8aee8ef21116160fbc5f6481938065e0382205f8541e5f2d378150  eds-macos-arm64
+f998c5759057aaf6bd83f3986254dcd629a87ac5f3be02e76d3f6a77cb398405  eds-windows-x86_64
 ```
 <!-- CHECKSUMS-END -->
 
