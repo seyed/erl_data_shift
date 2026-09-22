@@ -89,12 +89,12 @@ _eds est un outil nouveau — ceux-ci sont des outils éprouvés et largement ad
 ## Sécurité
 
 <!-- CHECKSUMS-START -->
-### 🔒 Sommes de contrôle SHA256 de la version v0.9.1
+### 🔒 Sommes de contrôle SHA256 de la version v0.9.2
 
 ```
-701f6cc72d8875d92347fed3655c1f07589ac9583a3d675de956a011c4ebd65d  eds-linux-x86_64
-f42f6666ccad20bf75bfdfa32fc1f4a75227a31e13156202b11a9379ada3268b  eds-macos-arm64
-21821a2e9a0eb41481aa6274df84ecc3d4d6fe04cfa1841f720733a91c33d0f1  eds-windows-x86_64
+137375221c5561dcefc23f13f435bff5238206353f928aa7617c26e9e96afb49  eds-linux-x86_64
+7ae4aed653b6699458e5e2b5e94f7e8dbd72199eb41896c437576a9b00570722  eds-macos-arm64
+f9efc72abc2a8f75bdbe52d3e9972de9115239ecef3a9255e58bb7d2dd3da151  eds-windows-x86_64
 ```
 <!-- CHECKSUMS-END -->
 
