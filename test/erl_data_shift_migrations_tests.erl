@@ -180,3 +180,51 @@ detect_non_transactional_returns_empty_for_normal_sql_test() ->
     Sql = "CREATE TABLE users(id serial primary key, email text);",
     ?assertEqual([], erl_data_shift_migrations:detect_non_transactional_statements(Sql)).
 
+%% -- resolve_dir/1 + eds.config interaction --
+
+%% Pin the "no config" fallback deterministically via mocking, rather than
+%% depending on whether a real eds.config happens to exist in the repo
+%% root during a test run (which would otherwise make this test flaky).
+resolve_dir_falls_back_to_migrations_when_config_missing_test() ->
+    Dir = "/tmp/eds_resolve_dir_no_config_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, get_original_cwd, fun() -> Dir end),
+
+    {ResolvedDir, Rest} = erl_data_shift_migrations:resolve_dir([]),
+
+    ?assertEqual(filename:join(Dir, "migrations"), ResolvedDir),
+    ?assertEqual([], Rest),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+resolve_dir_uses_config_migrations_dir_when_no_flag_test() ->
+    Dir = "/tmp/eds_resolve_dir_with_config_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    ok = file:write_file(filename:join(Dir, "eds.config"),
+        <<"[{migrations_dir, \"configured_dir\"}].">>),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, get_original_cwd, fun() -> Dir end),
+
+    {ResolvedDir, Rest} = erl_data_shift_migrations:resolve_dir([]),
+
+    ?assertEqual(filename:join(Dir, "configured_dir"), ResolvedDir),
+    ?assertEqual([], Rest),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).
+
+%% CLI flag must still win over eds.config's default.
+resolve_dir_cli_flag_overrides_config_test() ->
+    Dir = "/tmp/eds_resolve_dir_cli_override_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    ok = file:write_file(filename:join(Dir, "eds.config"),
+        <<"[{migrations_dir, \"configured_dir\"}].">>),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, get_original_cwd, fun() -> Dir end),
+
+    {ResolvedDir, Rest} = erl_data_shift_migrations:resolve_dir(["-f", "/explicit/path"]),
+
+    ?assertEqual("/explicit/path", ResolvedDir),
+    ?assertEqual([], Rest),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir).

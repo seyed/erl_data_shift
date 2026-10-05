@@ -7,14 +7,22 @@
 %% "0001_init.down.sql" in the same directory.
 -define(DOWN_SUFFIX, ".down.sql").
 
-%% Resolves the migrations directory from CLI args. Looks for "-f <path>" or
-%% "--path <path>"; defaults to "<original_cwd>/migrations" if not given.
+%% Resolves the migrations directory from CLI args. Looks for "-f <path>",
+%% "--path <path>", or the dash-free "path <path>"; if none given, falls
+%% back to eds.config's migrations_dir setting (if present), else
+%% "<original_cwd>/migrations". CLI flag always takes precedence over config.
 %% Returns {Dir, RemainingArgs} so callers can still see any other flags.
 -spec resolve_dir([string()]) -> {file:filename(), [string()]}.
 resolve_dir(Args) ->
     case take_flag(Args) of
         {ok, Path, Rest} -> {Path, Rest};
-        none -> {filename:join(erl_data_shift_env:get_original_cwd(), "migrations"), Args}
+        none ->
+            BaseDir = erl_data_shift_env:get_original_cwd(),
+            Subdir = case erl_data_shift_config:load() of
+                {ok, Config} -> erl_data_shift_config:get(migrations_dir, Config, "migrations");
+                {error, _} -> "migrations"
+            end,
+            {filename:join(BaseDir, Subdir), Args}
     end.
 
 %% Lists "up" .sql files in Dir, sorted by filename (so numeric/date-prefixed
@@ -130,4 +138,3 @@ detect_non_transactional_statements(Sql) ->
         "VACUUM"
     ],
     [P || P <- Patterns, string:find(Upper, P) =/= nomatch].
-
