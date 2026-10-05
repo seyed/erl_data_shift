@@ -143,6 +143,7 @@ eds init          # membuat kerangka migrations/ dan .env.example dalam direktor
 | Modul | Liputan |
 |---|---|
 | ✅ erl_data_shift_bench | 100% |
+| ✅ erl_data_shift_config | 100% |
 | ✅ erl_data_shift_json | 100% |
 | ✅ erl_data_shift_migrations | 97% |
 | ✅ erl_data_shift_env | 94% |

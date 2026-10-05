@@ -142,6 +142,7 @@ eds init          # scaffolds migrations/ and .env.example in the current direct
 | Module | Coverage |
 |---|---|
 | ✅ erl_data_shift_bench | 100% |
+| ✅ erl_data_shift_config | 100% |
 | ✅ erl_data_shift_json | 100% |
 | ✅ erl_data_shift_migrations | 97% |
 | ✅ erl_data_shift_env | 94% |

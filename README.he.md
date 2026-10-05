@@ -129,6 +129,7 @@ eds init          # יוצר את migrations/ ו-.env.example בתיקייה ה�
 <table dir="rtl" align="right">
 <tr><th>כיסוי</th><th>מודול</th></tr>
 <tr><td>✅ 100%</td><td>erl_data_shift_bench</td></tr>
+<tr><td>✅ 100%</td><td>erl_data_shift_config</td></tr>
 <tr><td>✅ 100%</td><td>erl_data_shift_json</td></tr>
 <tr><td>✅ 97%</td><td>erl_data_shift_migrations</td></tr>
 <tr><td>✅ 94%</td><td>erl_data_shift_env</td></tr>

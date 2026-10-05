@@ -139,6 +139,7 @@ eds init          # 在当前目录生成 migrations/ 和 .env.example
 | 模块 | 覆盖率 |
 |---|---|
 | ✅ erl_data_shift_bench | 100% |
+| ✅ erl_data_shift_config | 100% |
 | ✅ erl_data_shift_json | 100% |
 | ✅ erl_data_shift_migrations | 97% |
 | ✅ erl_data_shift_env | 94% |

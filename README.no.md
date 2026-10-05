@@ -141,6 +141,7 @@ eds init          # skaper migrations/ og .env.example i gjeldende mappe
 | Modul | Dekning |
 |---|---|
 | ✅ erl_data_shift_bench | 100% |
+| ✅ erl_data_shift_config | 100% |
 | ✅ erl_data_shift_json | 100% |
 | ✅ erl_data_shift_migrations | 97% |
 | ✅ erl_data_shift_env | 94% |

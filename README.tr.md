@@ -141,6 +141,7 @@ eds init          # mevcut dizinde migrations/ ve .env.example oluşturur
 | Modül | Kapsam |
 |---|---|
 | ✅ erl_data_shift_bench | 100% |
+| ✅ erl_data_shift_config | 100% |
 | ✅ erl_data_shift_json | 100% |
 | ✅ erl_data_shift_migrations | 97% |
 | ✅ erl_data_shift_env | 94% |

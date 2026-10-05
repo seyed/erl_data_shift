@@ -146,6 +146,7 @@ eds init          # skapar migrations/ och .env.example i aktuell katalog
 | Modul | Täckning |
 |---|---|
 | ✅ erl_data_shift_bench | 100% |
+| ✅ erl_data_shift_config | 100% |
 | ✅ erl_data_shift_json | 100% |
 | ✅ erl_data_shift_migrations | 97% |
 | ✅ erl_data_shift_env | 94% |
