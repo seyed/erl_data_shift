@@ -8,18 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- Nothing yet.
+- `eds.config` — optional project-level config file (plain Erlang terms, no new dependencies) for persistent defaults. Currently supports `migrations_dir`; CLI flags (`-f`/`--path`/`path`) always take precedence.
+- `eds init` now also scaffolds `eds.config.example` alongside `.env.example` and `migrations/` (never overwrites existing files).
 
+## [0.9.2]
 
-[0.9.2]
-Fixed
-Every command now returns a real exit code (0 for success, 1 for failure) — previously the VM always exited 0 regardless of the actual outcome, silently undermining CI/scripting use of this tool.
+### Fixed
+- Every command now returns a real exit code (0 for success, 1 for failure) — previously the VM always exited 0 regardless of the actual outcome, silently undermining CI/scripting use of this tool.
 
 ---
 
 ## Pre-0.9.1 releases
 
-> Everything below shipped across 36 tagged releases before this changelog
+> Everything below shipped across 33 tagged releases before this changelog
 > existed. Rather than reconstruct exact per-tag history after the fact,
 > this is a single summary of what's in the codebase as of v0.9.1. From
 > here on, new entries go under [Unreleased] above, one version at a time.

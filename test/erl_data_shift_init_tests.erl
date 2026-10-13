@@ -8,21 +8,22 @@ setup_dir() ->
 
 teardown(Dir) -> file:del_dir_r(Dir).
 
-%% Fresh directory: both migrations/ and .env.example get created.
-run_creates_both_when_missing_test() ->
+%% Fresh directory: migrations/, .env.example and eds.config.example all get created.
+run_creates_all_when_missing_test() ->
     Dir = setup_dir(),
     Result = erl_data_shift_init:run(Dir),
-    ?assertMatch({ok, #{created := ["migrations/", ".env.example"], skipped := []}}, Result),
+    ?assertMatch({ok, #{created := ["migrations/", ".env.example", "eds.config.example"], skipped := []}}, Result),
     ?assert(filelib:is_dir(filename:join(Dir, "migrations"))),
     ?assert(filelib:is_regular(filename:join(Dir, ".env.example"))),
+    ?assert(filelib:is_regular(filename:join(Dir, "eds.config.example"))),
     teardown(Dir).
 
-%% Running twice is idempotent: second run skips both, doesn't error or overwrite.
+%% Running twice is idempotent: second run skips all, doesn't error or overwrite.
 run_is_idempotent_test() ->
     Dir = setup_dir(),
     {ok, _} = erl_data_shift_init:run(Dir),
     Result = erl_data_shift_init:run(Dir),
-    ?assertMatch({ok, #{created := [], skipped := ["migrations/", ".env.example"]}}, Result),
+    ?assertMatch({ok, #{created := [], skipped := ["migrations/", ".env.example", "eds.config.example"]}}, Result),
     teardown(Dir).
 
 %% Existing .env.example content is never overwritten.
@@ -48,4 +49,27 @@ run_does_not_touch_existing_migrations_dir_test() ->
 
     ?assertEqual(["migrations/"], maps:get(skipped, Result) -- [".env.example"]),
     ?assert(filelib:is_regular(filename:join(MigrationsDir, "0001_init.sql"))),
+    teardown(Dir).
+
+
+%% Existing eds.config.example content is never overwritten.
+run_does_not_overwrite_existing_config_example_test() ->
+    Dir = setup_dir(),
+    Path = filename:join(Dir, "eds.config.example"),
+    ok = file:write_file(Path, <<"[{migrations_dir, \"mine\"}].\n">>),
+
+    {ok, Result} = erl_data_shift_init:run(Dir),
+
+    {ok, Content} = file:read_file(Path),
+    ?assertEqual(<<"[{migrations_dir, \"mine\"}].\n">>, Content),
+    ?assert(lists:member("eds.config.example", maps:get(skipped, Result))),
+    teardown(Dir).
+
+%% The scaffolded example must be valid for the real config loader
+%% (file:consult), so users can copy it to eds.config unchanged.
+run_config_example_is_parseable_test() ->
+    Dir = setup_dir(),
+    {ok, _} = erl_data_shift_init:run(Dir),
+    ?assertEqual({ok, [[{migrations_dir, "migrations"}]]},
+                 file:consult(filename:join(Dir, "eds.config.example"))),
     teardown(Dir).
