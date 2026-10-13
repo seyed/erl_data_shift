@@ -147,5 +147,5 @@ eds init          # 在当前目录生成 migrations/ 和 .env.example
 | ✅ erl_data_shift_migrator | 93% |
 | ✅ erl_data_shift_app | 86% |
 | ✅ erl_data_shift_scaffold | 82% |
-| ✅ erl_data_shift_init | 80% |
+| ⚠️ erl_data_shift_init | 79% |
 <!-- COVERAGE-END -->
