@@ -1,0 +1,5 @@
+%% Copy to eds.config to set persistent project defaults.
+%% CLI flags (-f/--path/path) always override these.
+[
+    {migrations_dir, "migrations"}
+].
