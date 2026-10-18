@@ -244,6 +244,21 @@ apply_migration_insert_failure_rolls_back_test() ->
     ?assert(meck:called(epgsql, squery, [fake_conn, "ROLLBACK"])),
     meck:unload(epgsql).
 
+%% -- record_baseline/3 --
+
+record_baseline_inserts_without_running_sql_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, [_V, _By, _Sum]) -> {ok, 1} end),
+    ?assertEqual(ok, erl_data_shift_db:record_baseline(fake_conn, "0001", "abc")),
+    ?assertNot(meck:called(epgsql, squery, '_')),
+    meck:unload(epgsql).
+
+record_baseline_insert_failure_test() ->
+    meck:new(epgsql, [non_strict]),
+    meck:expect(epgsql, equery, fun(_Conn, _Sql, _Params) -> {error, duplicate_version} end),
+    ?assertEqual({error, duplicate_version}, erl_data_shift_db:record_baseline(fake_conn, "0001", "abc")),
+    meck:unload(epgsql).
+
 %% -- with_connection/2 --
 
 with_connection_runs_fun_and_closes_test() ->

@@ -1,5 +1,6 @@
 -module(erl_data_shift_migrator).
--export([run/3, run/4, rollback_last/2, rollback_to/3, dry_run/2, validate/2, verify_checksums/2]).
+-export([run/3, run/4, rollback_last/2, rollback_to/3, dry_run/2, validate/2, verify_checksums/2,
+         baseline/3]).
 
 -define(NO_APPLIED_MIGRATIONS, no_applied_migrations).
 -define(DOWN_FILE_MISSING, down_file_missing).
@@ -126,6 +127,70 @@ verify_one(Dir, Files, Version, StoredChecksum) ->
                         true -> ok;
                         false -> {mismatch, StoredChecksum, LocalChecksum}
                     end
+            end
+    end.
+
+%% Marks every not-yet-applied migration with version <= Target as applied
+%% WITHOUT executing its SQL, so an existing database (whose schema already
+%% includes those changes) can adopt eds. Takes the advisory lock, stores
+%% each file's checksum, and stops at the first failure. Target must be a
+%% purely numeric version string (`all` is deliberately rejected: baselining
+%% everything is almost always a mistake).
+%% Returns {ok, [Version]} (newly baselined, ascending) or {error, Reason}.
+-spec baseline(map(), file:filename(), string()) -> {ok, [string()]} | {error, term()}.
+baseline(Env, Dir, Target) ->
+    case validate_baseline_target(Target) of
+        {error, Reason} ->
+            {error, Reason};
+        ok ->
+            case erl_data_shift_migrations:list_sql_files(Dir) of
+                {error, Reason} ->
+                    {error, Reason};
+                {ok, Files} ->
+                    erl_data_shift_db:with_connection(Env, fun(Conn) ->
+                        with_lock(Conn, fun() -> baseline_with_conn(Conn, Dir, Files, Target) end)
+                    end)
+            end
+    end.
+
+validate_baseline_target(Target) when is_list(Target), Target =/= all ->
+    validate_target(Target);
+validate_baseline_target(Target) ->
+    {error, {invalid_target_version, Target}}.
+
+baseline_with_conn(Conn, Dir, Files, Target) ->
+    case erl_data_shift_db:ensure_migrations_table(Conn) of
+        {error, Reason} ->
+            {error, Reason};
+        ok ->
+            case erl_data_shift_db:get_applied_versions(Conn) of
+                {error, Reason} ->
+                    {error, Reason};
+                {ok, Applied} ->
+                    TargetNum = list_to_integer(Target),
+                    Candidates = [F || F <- Files,
+                                  V <- [erl_data_shift_migrations:extract_version(F)],
+                                  not lists:member(V, Applied),
+                                  is_numeric(V),
+                                  list_to_integer(V) =< TargetNum],
+                    baseline_each(Conn, Dir, Candidates, [])
+            end
+    end.
+
+is_numeric(V) -> V =/= [] andalso lists:all(fun(C) -> C >= $0 andalso C =< $9 end, V).
+
+baseline_each(_Conn, _Dir, [], Acc) ->
+    {ok, lists:reverse(Acc)};
+baseline_each(Conn, Dir, [File | Rest], Acc) ->
+    case erl_data_shift_migrations:read_file(filename:join(Dir, File)) of
+        {error, Reason} ->
+            {error, {read_failed, File, Reason}};
+        {ok, Sql} ->
+            Version = erl_data_shift_migrations:extract_version(File),
+            Checksum = erl_data_shift_migrations:compute_checksum(Sql),
+            case erl_data_shift_db:record_baseline(Conn, Version, Checksum) of
+                ok -> baseline_each(Conn, Dir, Rest, [Version | Acc]);
+                {error, Reason} -> {error, {baseline_failed, File, Reason}}
             end
     end.
 
@@ -321,4 +386,3 @@ apply_pending(Conn, Dir, [File | Rest], Total, Idx, ProgressFun, AppliedCount) -
                     {error, {non_transactional_statement, File, Matches}}
             end
     end.
-

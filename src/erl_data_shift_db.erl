@@ -2,7 +2,7 @@
 -export([check_connection/1, get_table_stats/1, get_migration_history/1,
          with_connection/2, ensure_migrations_table/1, get_applied_versions/1,
          get_applied_versions_desc/1,
-         apply_migration/3, get_last_applied_version/1, revert_migration/3,
+         apply_migration/3, record_baseline/3, get_last_applied_version/1, revert_migration/3,
          acquire_migration_lock/1, release_migration_lock/1, validate_migration/2,
          get_applied_checksums/1]).
 
@@ -109,6 +109,18 @@ apply_migration(Conn, Version, Sql) ->
         {error, Reason} ->
             epgsql:squery(Conn, "ROLLBACK"),
             {error, Reason}
+    end.
+
+%% Records Version as applied WITHOUT running any SQL — used by `eds baseline`
+%% to adopt an existing database whose schema already contains the effects of
+%% older migrations. Stores the file's checksum so drift detection keeps
+%% working for baselined migrations too.
+-spec record_baseline(epgsql:connection(), string(), string()) -> ok | {error, term()}.
+record_baseline(Conn, Version, Checksum) ->
+    InsertSql = "INSERT INTO schema_migrations (version, applied_by, checksum) VALUES ($1, $2, $3)",
+    case epgsql:equery(Conn, InsertSql, [Version, current_user(), Checksum]) of
+        {ok, _} -> ok;
+        {error, Reason} -> {error, Reason}
     end.
 
 %% epgsql:squery on multi-statement SQL returns a list of per-statement

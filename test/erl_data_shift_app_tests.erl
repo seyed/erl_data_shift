@@ -1357,3 +1357,51 @@ migrate_non_transactional_statement_test() ->
     meck:unload(erl_data_shift_migrator),
     meck:unload(erl_data_shift_env),
     file:del_dir_r(Dir).
+
+%% -- baseline command, via mocked migrator --
+
+baseline_with_mocks(Result, Args) ->
+    Dir = "/tmp/eds_app_baseline_test",
+    filelib:ensure_dir(Dir ++ "/"),
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, baseline, fun(_Env, _Dir, _Target) -> Result end),
+    Out = erl_data_shift_app:dispatch(["baseline" | Args] ++ ["-f", Dir]),
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env),
+    file:del_dir_r(Dir),
+    Out.
+
+baseline_cmd_success_test() ->
+    ?assertEqual(ok, baseline_with_mocks({ok, ["0001", "0002"]}, ["0002"])).
+
+baseline_cmd_nothing_to_do_test() ->
+    ?assertEqual(ok, baseline_with_mocks({ok, []}, ["0002"])).
+
+baseline_cmd_missing_version_prints_usage_test() ->
+    ?assertEqual(error, erl_data_shift_app:dispatch(["baseline", "-f", "/tmp/eds_app_baseline_usage"])).
+
+baseline_cmd_invalid_version_test() ->
+    ?assertEqual(error, baseline_with_mocks({error, {invalid_target_version, "abc"}}, ["abc"])).
+
+baseline_cmd_directory_not_found_test() ->
+    ?assertEqual(error, baseline_with_mocks({error, {directory_not_found, "/x"}}, ["0001"])).
+
+baseline_cmd_generic_error_test() ->
+    ?assertEqual(error, baseline_with_mocks({error, boom}, ["0001"])).
+
+baseline_cmd_env_error_test() ->
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {error, enoent} end),
+    ?assertEqual(error, erl_data_shift_app:dispatch(["baseline", "0001", "-f", "/tmp/eds_app_baseline_env"])),
+    meck:unload(erl_data_shift_env).
+
+baseline_cmd_unexpected_exception_test() ->
+    meck:new(erl_data_shift_env, [passthrough]),
+    meck:expect(erl_data_shift_env, load, fun() -> {ok, #{}} end),
+    meck:new(erl_data_shift_migrator, [non_strict]),
+    meck:expect(erl_data_shift_migrator, baseline, fun(_E, _D, _T) -> erlang:error(kaboom) end),
+    ?assertEqual(error, erl_data_shift_app:dispatch(["baseline", "0001", "-f", "/tmp/eds_app_baseline_exc"])),
+    meck:unload(erl_data_shift_migrator),
+    meck:unload(erl_data_shift_env).
