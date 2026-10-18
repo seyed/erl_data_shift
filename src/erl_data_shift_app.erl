@@ -24,6 +24,7 @@
     {"validate json", "Same as validate, output as JSON."},
     {"verify", "Checks that applied migration files haven't been edited since they ran (checksum drift)."},
     {"verify json", "Same as verify, output as JSON."},
+    {"baseline <version>", "Marks every migration up to <version> as applied WITHOUT running it. Use to adopt an existing database."},
     {"init", "Scaffolds migrations/ and .env.example in the current directory."},
     {"--version", "Prints the eds version."},
     {"--help / -h", "Shows this help message."}
@@ -36,6 +37,7 @@
     "history"   => fun(_Args) -> history() end,
     "init"      => fun(_Args) -> init_cmd() end,
     "new"       => fun new_cmd/1,
+    "baseline"  => fun baseline_cmd/1,
     "validate"  => fun validate_cmd/1,
     "verify"    => fun verify_cmd/1,
     "version"   => fun(_Args) -> print_version() end,
@@ -132,6 +134,47 @@ new_cmd([Name | _Rest]) ->
             io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err]),
             error
     end.
+
+%% eds baseline <version> [path <dir>]: records migrations up to <version> as
+%% applied without executing them (for databases that already have the schema).
+baseline_cmd(Args) ->
+    {Dir, Rest} = erl_data_shift_migrations:resolve_dir(Args),
+    case Rest of
+        [] ->
+            io:format("\033[31m❌ Usage: eds baseline <version>~n\033[0m"),
+            error;
+        [Target | _] ->
+            try
+                case erl_data_shift_env:load() of
+                    {error, Reason} ->
+                        io:format("\033[31m❌ Could not read .env: ~p~n\033[0m", [Reason]),
+                        error;
+                    {ok, Env} ->
+                        print_baseline_result(erl_data_shift_migrator:baseline(Env, Dir, Target), Dir)
+                end
+            catch
+                Class:Err ->
+                    io:format("\033[31m❌ Unexpected error (~p): ~p~n\033[0m", [Class, Err]),
+                    error
+            end
+    end.
+
+print_baseline_result({ok, []}, _Dir) ->
+    io:format("\033[32m✅ Nothing to baseline.~n\033[0m"),
+    ok;
+print_baseline_result({ok, Versions}, _Dir) ->
+    io:format("\033[32m✅ Baselined ~B migration(s) without running them: ~ts~n\033[0m",
+              [length(Versions), string:join(Versions, ", ")]),
+    ok;
+print_baseline_result({error, {directory_not_found, D}}, _Dir) ->
+    io:format("\033[33m⚠️  Migrations directory not found: ~ts~n\033[0m", [D]),
+    error;
+print_baseline_result({error, {invalid_target_version, T}}, _Dir) ->
+    io:format("\033[31m❌ Invalid version ~p: must be numeric, e.g. eds baseline 0003~n\033[0m", [T]),
+    error;
+print_baseline_result({error, Reason}, _Dir) ->
+    io:format("\033[31m❌ Baseline failed: ~p~n\033[0m", [Reason]),
+    error.
 
 validate_cmd(Args) ->
     {Dir, RemainingArgs} = erl_data_shift_migrations:resolve_dir(Args),

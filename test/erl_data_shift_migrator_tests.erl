@@ -722,3 +722,68 @@ validate_blocks_non_transactional_statement_test() ->
     meck:unload(erl_data_shift_db),
     file:del_dir_r(Dir).
 
+
+%% -- baseline/3 --
+
+baseline_mocks(Applied) ->
+    meck:new(erl_data_shift_db, [non_strict]),
+    meck:expect(erl_data_shift_db, with_connection, fun(_Env, Fun) -> Fun(fake_conn) end),
+    expect_lock_ok(),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> ok end),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {ok, Applied} end).
+
+baseline_records_up_to_target_without_running_sql_test() ->
+    Dir = setup(),
+    baseline_mocks([]),
+    meck:expect(erl_data_shift_db, record_baseline, fun(_Conn, _V, _Sum) -> ok end),
+
+    ?assertEqual({ok, ["0001"]}, erl_data_shift_migrator:baseline(#{}, Dir, "0001")),
+
+    ?assertEqual(1, meck:num_calls(erl_data_shift_db, record_baseline, '_')),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+baseline_skips_already_applied_test() ->
+    Dir = setup(),
+    baseline_mocks(["0001"]),
+    meck:expect(erl_data_shift_db, record_baseline, fun(_Conn, _V, _Sum) -> ok end),
+
+    ?assertEqual({ok, ["0002"]}, erl_data_shift_migrator:baseline(#{}, Dir, "0002")),
+
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+baseline_rejects_non_numeric_and_all_test() ->
+    ?assertMatch({error, {invalid_target_version, _}}, erl_data_shift_migrator:baseline(#{}, "/tmp/x", "abc")),
+    ?assertMatch({error, {invalid_target_version, _}}, erl_data_shift_migrator:baseline(#{}, "/tmp/x", all)).
+
+baseline_missing_directory_test() ->
+    ?assertMatch({error, {directory_not_found, _}},
+                 erl_data_shift_migrator:baseline(#{}, "/tmp/eds_baseline_missing_dir", "0001")).
+
+baseline_stops_on_record_failure_test() ->
+    Dir = setup(),
+    baseline_mocks([]),
+    meck:expect(erl_data_shift_db, record_baseline, fun(_Conn, _V, _Sum) -> {error, boom} end),
+
+    ?assertMatch({error, {baseline_failed, "0001_init.sql", boom}},
+                 erl_data_shift_migrator:baseline(#{}, Dir, "0002")),
+
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+baseline_ensure_table_failure_test() ->
+    Dir = setup(),
+    baseline_mocks([]),
+    meck:expect(erl_data_shift_db, ensure_migrations_table, fun(_Conn) -> {error, nope} end),
+    ?assertEqual({error, nope}, erl_data_shift_migrator:baseline(#{}, Dir, "0001")),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).
+
+baseline_get_applied_failure_test() ->
+    Dir = setup(),
+    baseline_mocks([]),
+    meck:expect(erl_data_shift_db, get_applied_versions, fun(_Conn) -> {error, nope} end),
+    ?assertEqual({error, nope}, erl_data_shift_migrator:baseline(#{}, Dir, "0001")),
+    meck:unload(erl_data_shift_db),
+    teardown(Dir).

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - `eds.config` — optional project-level config file (plain Erlang terms, no new dependencies) for persistent defaults. Currently supports `migrations_dir`; CLI flags (`-f`/`--path`/`path`) always take precedence.
+- `eds baseline <version>` — marks every migration up to `<version>` as applied without running it, so existing databases can adopt eds. Stores checksums (drift detection still works), takes the advisory lock, rejects non-numeric/`all` targets.
 - `eds init` now also scaffolds `eds.config.example` alongside `.env.example` and `migrations/` (never overwrites existing files).
 
 ## [0.9.2]
