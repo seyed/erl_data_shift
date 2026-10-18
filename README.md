@@ -146,9 +146,9 @@ eds init          # scaffolds migrations/ and .env.example in the current direct
 | ✅ erl_data_shift_json | 100% |
 | ✅ erl_data_shift_migrations | 97% |
 | ✅ erl_data_shift_env | 94% |
+| ✅ erl_data_shift_migrator | 94% |
 | ✅ erl_data_shift_db | 93% |
-| ✅ erl_data_shift_migrator | 93% |
-| ✅ erl_data_shift_app | 86% |
+| ✅ erl_data_shift_app | 87% |
 | ✅ erl_data_shift_scaffold | 82% |
 | ⚠️ erl_data_shift_init | 79% |
 <!-- COVERAGE-END -->

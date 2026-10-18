@@ -133,9 +133,9 @@ eds init          # יוצר את migrations/ ו-.env.example בתיקייה ה�
 <tr><td>✅ 100%</td><td>erl_data_shift_json</td></tr>
 <tr><td>✅ 97%</td><td>erl_data_shift_migrations</td></tr>
 <tr><td>✅ 94%</td><td>erl_data_shift_env</td></tr>
+<tr><td>✅ 94%</td><td>erl_data_shift_migrator</td></tr>
 <tr><td>✅ 93%</td><td>erl_data_shift_db</td></tr>
-<tr><td>✅ 93%</td><td>erl_data_shift_migrator</td></tr>
-<tr><td>✅ 86%</td><td>erl_data_shift_app</td></tr>
+<tr><td>✅ 87%</td><td>erl_data_shift_app</td></tr>
 <tr><td>✅ 82%</td><td>erl_data_shift_scaffold</td></tr>
 <tr><td>⚠️ 79%</td><td>erl_data_shift_init</td></tr>
 </table>
