@@ -86,12 +86,12 @@ _eds ialah tool baharu — yang berikut ialah tools yang sudah mapan dan banyak 
 ## Keselamatan
 
 <!-- CHECKSUMS-START -->
-### 🔒 Jumlah Semak SHA256 untuk Keluaran v0.9.2
+### 🔒 Jumlah Semak SHA256 untuk Keluaran v0.9.3
 
 ```
-c952f58c007f3503e567199087cb24da3b46b75af046e98411a59e234eb76ca1  eds-linux-x86_64
-790133e24a8aee8ef21116160fbc5f6481938065e0382205f8541e5f2d378150  eds-macos-arm64
-f998c5759057aaf6bd83f3986254dcd629a87ac5f3be02e76d3f6a77cb398405  eds-windows-x86_64
+0f931c9de64899a8d4234d2b6566b54743d1f11f2ecadd95bf89ffab70465d78  eds-linux-x86_64
+9502b503aa3996c82169f80aaff2c6dc272d4d87c3e4760ce9375b9b43b5c736  eds-macos-arm64
+4287bb74244b7919f13099d3d642feec6071741db120a4683e284c1fbd36d3f0  eds-windows-x86_64
 ```
 <!-- CHECKSUMS-END -->
 
